@@ -1,0 +1,340 @@
+#!/bin/bash
+
+# System Monitor Script with Automated Reporting
+# This script collects system metrics and maintains historical reports
+
+# Configuration variables
+REPORT_DIR="/usr/local/system-reports"
+REPORT_PREFIX="system_report"
+MAX_REPORTS=5
+LOG_FILE="/var/log/system_monitor.log"
+
+# Function to log messages
+log_message() {
+    local message="$1"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] $message" | tee -a "$LOG_FILE"
+}
+
+# Function to check if required commands are available
+check_dependencies() {
+    local required_commands=("df" "ip" "uptime" "free" "date")
+    local missing_commands=()
+    
+    for cmd in "${required_commands[@]}"; do
+        if ! command -v "$cmd" &> /dev/null; then
+            missing_commands+=("$cmd")
+        fi
+    done
+    
+    if [ ${#missing_commands[@]} -ne 0 ]; then
+        log_message "ERROR: Missing required commands: ${missing_commands[*]}"
+        exit 1
+    fi
+}
+
+# Function to create report directory if it doesn't exist
+setup_report_directory() {
+    if [ ! -d "$REPORT_DIR" ]; then
+        if mkdir -p "$REPORT_DIR"; then
+            log_message "Created report directory: $REPORT_DIR"
+        else
+            log_message "ERROR: Failed to create report directory: $REPORT_DIR"
+            exit 1
+        fi
+    fi
+    
+    # Check if directory is writable
+    if [ ! -w "$REPORT_DIR" ]; then
+        log_message "ERROR: Report directory is not writable: $REPORT_DIR"
+        exit 1
+    fi
+}
+
+# Function to generate timestamp for report filename
+generate_timestamp() {
+    date '+%Y-%m-%d_%H-%M-%S'
+}
+
+# Function to collect disk space information
+collect_disk_info() {
+    echo "=== DISK SPACE UTILIZATION ==="
+    echo "Timestamp: $(date)"
+    echo
+    
+    # Get disk usage information
+    df -h 2>/dev/null || {
+        echo "ERROR: Unable to retrieve disk information"
+        return 1
+    }
+    
+    echo
+    echo "Critical Disk Usage (>80%):"
+    # Check for disks with >80% usage
+    df -h | awk 'NR>1 && $5+0 > 80 {print $0 " - WARNING: High disk usage!"}'
+    echo
+}
+
+# Function to collect IP configuration
+collect_ip_info() {
+    echo "=== IP CONFIGURATION ==="
+    echo "Timestamp: $(date)"
+    echo
+    
+    # Get network interface information
+    if command -v ip &> /dev/null; then
+        echo "Network Interfaces:"
+        ip addr show 2>/dev/null || {
+            echo "ERROR: Unable to retrieve IP information"
+            return 1
+        }
+        
+        echo
+        echo "Routing Table:"
+        ip route show 2>/dev/null || echo "ERROR: Unable to retrieve routing information"
+    else
+        echo "ERROR: 'ip' command not available"
+        return 1
+    fi
+    
+    echo
+}
+
+# Function to collect system uptime
+collect_uptime_info() {
+    echo "=== SYSTEM UPTIME ==="
+    echo "Timestamp: $(date)"
+    echo
+    
+    # Get system uptime and load average
+    uptime 2>/dev/null || {
+        echo "ERROR: Unable to retrieve uptime information"
+        return 1
+    }
+    
+    echo
+    
+    # Get system boot time
+    if [ -f /proc/uptime ]; then
+        echo "Boot Time: $(date -d "$(awk '{print $1}' /proc/uptime) seconds ago")"
+    fi
+    
+    echo
+}
+
+# Function to collect memory information
+collect_memory_info() {
+    echo "=== MEMORY INFORMATION ==="
+    echo "Timestamp: $(date)"
+    echo
+    
+    # Get memory usage information
+    free -h 2>/dev/null || {
+        echo "ERROR: Unable to retrieve memory information"
+        return 1
+    }
+    
+    echo
+    
+    # Calculate memory usage percentage
+    local total_mem=$(free -m | awk 'NR==2{print $2}')
+    local used_mem=$(free -m | awk 'NR==2{print $3}')
+    
+    if [ -n "$total_mem" ] && [ -n "$used_mem" ] && [ "$total_mem" -gt 0 ]; then
+        local mem_percentage=$((used_mem * 100 / total_mem))
+        echo "Memory Usage: ${mem_percentage}%"
+        
+        if [ "$mem_percentage" -gt 80 ]; then
+            echo "WARNING: High memory usage detected!"
+        fi
+    fi
+    
+    echo
+}
+
+# Function to generate the complete system report
+generate_report() {
+    local timestamp="$1"
+    local report_file="$REPORT_DIR/${REPORT_PREFIX}_${timestamp}.txt"
+    
+    log_message "Generating system report: $report_file"
+    
+    {
+        echo "==============================================="
+        echo "        SYSTEM MONITORING REPORT"
+        echo "==============================================="
+        echo "Generated: $(date)"
+        echo "Hostname: $(hostname)"
+        echo "==============================================="
+        echo
+        
+        collect_disk_info
+        collect_ip_info
+        collect_uptime_info
+        collect_memory_info
+        
+        echo "==============================================="
+        echo "           END OF REPORT"
+        echo "==============================================="
+        echo "Report generated by: $0"
+        echo "Report location: $report_file"
+        echo "==============================================="
+        
+    } > "$report_file"
+    
+    if [ $? -eq 0 ]; then
+        log_message "Report generated successfully: $report_file"
+        return 0
+    else
+        log_message "ERROR: Failed to generate report: $report_file"
+        return 1
+    fi
+}
+
+# Function to cleanup old reports (keep only the most recent MAX_REPORTS)
+cleanup_old_reports() {
+    log_message "Cleaning up old reports (keeping $MAX_REPORTS most recent)"
+    
+    # Get list of report files sorted by modification time (newest first)
+    local report_files=($(ls -t "$REPORT_DIR"/${REPORT_PREFIX}_*.txt 2>/dev/null))
+    local total_reports=${#report_files[@]}
+    
+    log_message "Found $total_reports existing reports"
+    
+    # If we have more than MAX_REPORTS, remove the oldest ones
+    if [ "$total_reports" -gt "$MAX_REPORTS" ]; then
+        local reports_to_remove=$((total_reports - MAX_REPORTS))
+        log_message "Removing $reports_to_remove old reports"
+        
+        # Remove the oldest reports
+        for ((i=MAX_REPORTS; i<total_reports; i++)); do
+            local file_to_remove="${report_files[$i]}"
+            if rm "$file_to_remove" 2>/dev/null; then
+                log_message "Removed old report: $file_to_remove"
+            else
+                log_message "ERROR: Failed to remove old report: $file_to_remove"
+            fi
+        done
+    else
+        log_message "No cleanup needed (have $total_reports reports, limit is $MAX_REPORTS)"
+    fi
+}
+
+# Function to display script usage
+show_usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo "Options:"
+    echo "  -h, --help     Show this help message"
+    echo "  -d, --dir      Specify custom report directory"
+    echo "  -c, --count    Specify number of reports to keep (default: $MAX_REPORTS)"
+    echo "  -t, --test     Run in test mode (display report without saving)"
+    echo
+    echo "Examples:"
+    echo "  $0                    # Generate report with default settings"
+    echo "  $0 -d /tmp/reports    # Use custom directory"
+    echo "  $0 -c 10              # Keep 10 most recent reports"
+    echo "  $0 -t                 # Test mode - display report only"
+}
+
+# Function to handle command line arguments
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                show_usage
+                exit 0
+                ;;
+            -d|--dir)
+                REPORT_DIR="$2"
+                shift 2
+                ;;
+            -c|--count)
+                if [[ "$2" =~ ^[0-9]+$ ]] && [ "$2" -gt 0 ]; then
+                    MAX_REPORTS="$2"
+                else
+                    log_message "ERROR: Invalid report count: $2"
+                    exit 1
+                fi
+                shift 2
+                ;;
+            -t|--test)
+                TEST_MODE=true
+                shift
+                ;;
+            *)
+                log_message "ERROR: Unknown option: $1"
+                show_usage
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# Function to run in test mode
+run_test_mode() {
+    echo "=== RUNNING IN TEST MODE ==="
+    echo "This will display the report without saving it"
+    echo "=============================================="
+    echo
+    
+    collect_disk_info
+    collect_ip_info
+    collect_uptime_info
+    collect_memory_info
+    
+    echo "=============================================="
+    echo "=== TEST MODE COMPLETED ==="
+}
+
+# Main execution function
+main() {
+    # Parse command line arguments
+    parse_arguments "$@"
+    
+    # Run in test mode if requested
+    if [ "$TEST_MODE" = true ]; then
+        run_test_mode
+        exit 0
+    fi
+    
+    # Start logging
+    log_message "Starting system monitor script"
+    log_message "Report directory: $REPORT_DIR"
+    log_message "Max reports to keep: $MAX_REPORTS"
+    
+    # Check dependencies
+    check_dependencies
+    
+    # Setup report directory
+    setup_report_directory
+    
+    # Generate timestamp
+    local timestamp=$(generate_timestamp)
+    
+    # Generate the report
+    if generate_report "$timestamp"; then
+        # Cleanup old reports
+        cleanup_old_reports
+        
+        log_message "System monitoring completed successfully"
+        echo "Report generated: $REPORT_DIR/${REPORT_PREFIX}_${timestamp}.txt"
+        
+        # Display summary
+        echo
+        echo "Current reports in $REPORT_DIR:"
+        ls -la "$REPORT_DIR"/${REPORT_PREFIX}_*.txt 2>/dev/null || echo "No reports found"
+        
+    else
+        log_message "ERROR: System monitoring failed"
+        exit 1
+    fi
+}
+
+# Error handling - exit on any error
+set -e
+
+# Trap to handle script interruption
+trap 'log_message "Script interrupted"; exit 1' INT TERM
+
+# Execute main function with all arguments
+main "$@"

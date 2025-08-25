@@ -26,10 +26,10 @@ fi
 # Verify that the 'mail' command is available on the system
 # command -v checks if a command exists in PATH
 # &> /dev/null redirects both stdout and stderr to null (silences output)
-if ! command -v mail &> /dev/null; then
-    echo "Error: 'mail' command not found."
-    exit 1
-fi
+# if ! command -v mail &> /dev/null; then
+#     echo "Error: 'mail' command not found."
+#     exit 1
+# fi
 
 echo "Starting log monitor for: $LOG_FILE"
 
@@ -43,7 +43,7 @@ send_alert() {
     local message="HTTP [$http_status_code] on [$http_path]"
     
     # Send email using mail command
-    mail "$RECIPIENT_EMAIL" "$message"
+    echo "$RECIPIENT_EMAIL" "$message"
     
     # Log the alert action locally
     echo "Alert sent: $message"

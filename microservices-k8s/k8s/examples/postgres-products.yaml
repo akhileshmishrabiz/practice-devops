@@ -1,0 +1,127 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-products
+  namespace: ecommerce
+  labels:
+    app: postgres-products
+    tier: database
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres-products
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-products
+  namespace: ecommerce
+  labels:
+    app: postgres-products
+    tier: database
+spec:
+  serviceName: postgres-products
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-products
+  template:
+    metadata:
+      labels:
+        app: postgres-products
+        tier: database
+    spec:
+      securityContext:
+        fsGroup: 999
+        runAsUser: 999
+        runAsNonRoot: true
+
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+
+        ports:
+        - name: postgres
+          containerPort: 5432
+          protocol: TCP
+
+        env:
+        - name: POSTGRES_DB
+          value: "products"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-products-secrets
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-products-secrets
+              key: password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+
+      terminationGracePeriodSeconds: 60
+
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: "standard"  # Adjust based on your cluster
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-products-secrets
+  namespace: ecommerce
+type: Opaque
+stringData:
+  username: "ecommerce_user"
+  password: "secure_password_123"  # Use sealed-secrets or external-secrets in production

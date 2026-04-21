@@ -1,0 +1,382 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Databases
+  postgres-products:
+    image: postgres:15-alpine
+    container_name: postgres-products
+    environment:
+      POSTGRES_USER: ecommerce_user
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: products
+    ports:
+      - "5436:5432"
+    volumes:
+      - products-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ecommerce-network
+
+  postgres-users:
+    image: postgres:15-alpine
+    container_name: postgres-users
+    environment:
+      POSTGRES_USER: ecommerce_user
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: users
+    ports:
+      - "5433:5432"
+    volumes:
+      - users-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ecommerce-network
+
+  postgres-orders:
+    image: postgres:15-alpine
+    container_name: postgres-orders
+    environment:
+      POSTGRES_USER: ecommerce_user
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: orders
+    ports:
+      - "5434:5432"
+    volumes:
+      - orders-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ecommerce-network
+
+  postgres-payments:
+    image: postgres:15-alpine
+    container_name: postgres-payments
+    environment:
+      POSTGRES_USER: ecommerce_user
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: payments
+    ports:
+      - "5435:5432"
+    volumes:
+      - payments-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ecommerce-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --requirepass redis_password_123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password_123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ecommerce-network
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ecommerce-network
+
+  # Microservices
+  product-service:
+    build:
+      context: ./services/product-service
+      dockerfile: Dockerfile
+    container_name: product-service
+    environment:
+      PORT: 8001
+      GO_ENV: production
+      PRODUCT_DB_HOST: postgres-products
+      PRODUCT_DB_PORT: 5432
+      PRODUCT_DB_USER: ecommerce_user
+      PRODUCT_DB_PASSWORD: secure_password_123
+      PRODUCT_DB_NAME: products
+      LOG_LEVEL: info
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres-products:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    environment:
+      PORT: 8002
+      NODE_ENV: production
+      USER_DB_HOST: postgres-users
+      USER_DB_PORT: 5432
+      USER_DB_USER: ecommerce_user
+      USER_DB_PASSWORD: secure_password_123
+      USER_DB_NAME: users
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production-min-32-chars
+      JWT_EXPIRY: 24h
+      LOG_LEVEL: info
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres-users:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  cart-service:
+    build:
+      context: ./services/cart-service
+      dockerfile: Dockerfile
+    container_name: cart-service
+    environment:
+      PORT: 8003
+      NODE_ENV: production
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_123
+      REDIS_DB: 0
+      PRODUCT_SERVICE_URL: http://product-service:8001
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production-min-32-chars
+      LOG_LEVEL: info
+    ports:
+      - "8003:8003"
+    depends_on:
+      redis:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: ./services/order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    environment:
+      PORT: 8004
+      GO_ENV: production
+      ORDER_DB_HOST: postgres-orders
+      ORDER_DB_PORT: 5432
+      ORDER_DB_USER: ecommerce_user
+      ORDER_DB_PASSWORD: secure_password_123
+      ORDER_DB_NAME: orders
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production-min-32-chars
+      CART_SERVICE_URL: http://cart-service:8003
+      PRODUCT_SERVICE_URL: http://product-service:8001
+      LOG_LEVEL: info
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres-orders:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      cart-service:
+        condition: service_started
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    environment:
+      PORT: 8005
+      FLASK_ENV: production
+      PAYMENT_DB_HOST: postgres-payments
+      PAYMENT_DB_PORT: 5432
+      PAYMENT_DB_USER: ecommerce_user
+      PAYMENT_DB_PASSWORD: secure_password_123
+      PAYMENT_DB_NAME: payments
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production-min-32-chars
+      ORDER_SERVICE_URL: http://order-service:8004
+      LOG_LEVEL: INFO
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres-payments:
+        condition: service_healthy
+      order-service:
+        condition: service_started
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    environment:
+      PORT: 8006
+      FLASK_ENV: production
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      SES_SENDER_EMAIL: ${SES_SENDER_EMAIL}
+      SES_SENDER_NAME: ${SES_SENDER_NAME:-E-Commerce Platform}
+      LOG_LEVEL: INFO
+    ports:
+      - "8006:8006"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - product-service
+      - user-service
+      - cart-service
+      - order-service
+      - payment-service
+      - notification-service
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_SERVER_ROOT_URL: http://localhost:3001
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: /api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api-gateway
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # API Gateway
+  api-gateway:
+    image: nginx:alpine
+    container_name: api-gateway
+    ports:
+      - "8080:80"
+    volumes:
+      - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - product-service
+      - user-service
+      - cart-service
+      - order-service
+      - payment-service
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+networks:
+  ecommerce-network:
+    driver: bridge
+
+volumes:
+  products-data:
+  users-data:
+  orders-data:
+  payments-data:
+  redis-data:
+  rabbitmq-data:
+  prometheus-data:
+  grafana-data:

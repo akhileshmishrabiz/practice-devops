@@ -1,0 +1,120 @@
+# Prometheus Configuration for Microservices Monitoring
+
+global:
+  scrape_interval: 15s      # How frequently to scrape targets
+  evaluation_interval: 15s   # How frequently to evaluate rules
+
+  # Attach these labels to any time series or alerts when communicating with external systems
+  external_labels:
+    cluster: 'ecommerce-cluster'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - '/etc/prometheus/rules/*.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Product Service
+  - job_name: 'product-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['product-service:8001']
+        labels:
+          service: 'product-service'
+          tier: 'backend'
+    # For Kubernetes service discovery
+    # kubernetes_sd_configs:
+    #   - role: pod
+    #     namespaces:
+    #       names:
+    #         - ecommerce
+    # relabel_configs:
+    #   - source_labels: [__meta_kubernetes_pod_label_app]
+    #     action: keep
+    #     regex: product-service
+
+  # User Service
+  - job_name: 'user-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['user-service:8002']
+        labels:
+          service: 'user-service'
+          tier: 'backend'
+
+  # Cart Service
+  - job_name: 'cart-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['cart-service:8003']
+        labels:
+          service: 'cart-service'
+          tier: 'backend'
+
+  # Order Service
+  - job_name: 'order-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['order-service:8004']
+        labels:
+          service: 'order-service'
+          tier: 'backend'
+
+  # Payment Service
+  - job_name: 'payment-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['payment-service:8005']
+        labels:
+          service: 'payment-service'
+          tier: 'backend'
+
+  # Notification Service
+  - job_name: 'notification-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['notification-service:8006']
+        labels:
+          service: 'notification-service'
+          tier: 'backend'
+
+  # PostgreSQL Exporter (if using postgres_exporter)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          tier: 'database'
+
+  # Redis Exporter (if using redis_exporter)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          tier: 'cache'
+
+  # RabbitMQ
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']  # RabbitMQ Prometheus plugin port
+        labels:
+          tier: 'messaging'
+
+  # Node Exporter (for host metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          tier: 'infrastructure'

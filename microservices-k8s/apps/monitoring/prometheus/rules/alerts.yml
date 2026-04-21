@@ -1,0 +1,209 @@
+groups:
+  - name: service_health
+    interval: 30s
+    rules:
+      # Service availability alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been down for more than 1 minute."
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+            /
+            sum(rate(http_requests_total[5m])) by (service)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.service }}"
+          description: "{{ $labels.service }} has error rate above 5% (current: {{ $value | humanizePercentage }})"
+
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time on {{ $labels.service }}"
+          description: "95th percentile response time is above 2s (current: {{ $value }}s)"
+
+  - name: resource_usage
+    interval: 30s
+    rules:
+      # CPU and Memory alerts
+      - alert: HighCPUUsage
+        expr: process_cpu_seconds_total > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.job }}"
+          description: "CPU usage is above 80% for more than 5 minutes"
+
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            process_resident_memory_bytes
+            /
+            (1024 * 1024 * 1024)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.job }}"
+          description: "Memory usage is above 1GB (current: {{ $value }}GB)"
+
+  - name: database_alerts
+    interval: 30s
+    rules:
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(database_query_duration_seconds_bucket[5m])) by (le, service, operation)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries on {{ $labels.service }}"
+          description: "95th percentile query time is above 1s for {{ $labels.operation }} (current: {{ $value }}s)"
+
+      - alert: DatabaseConnectionFailure
+        expr: |
+          sum(rate(database_connection_errors_total[5m])) by (service) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection failures on {{ $labels.service }}"
+          description: "{{ $labels.service }} is experiencing database connection failures"
+
+  - name: business_metrics
+    interval: 1m
+    rules:
+      # Payment service specific alerts
+      - alert: HighPaymentFailureRate
+        expr: |
+          (
+            rate(payments_processed_total{status="failed"}[5m])
+            /
+            rate(payments_processed_total[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High payment failure rate"
+          description: "Payment failure rate is above 10% (current: {{ $value | humanizePercentage }})"
+
+      - alert: NoPaymentsProcessed
+        expr: |
+          rate(payments_processed_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "No payments processed recently"
+          description: "No payments have been processed in the last 10 minutes"
+
+      # User service specific alerts
+      - alert: HighLoginFailureRate
+        expr: |
+          (
+            rate(user_logins_total{status="failure"}[5m])
+            /
+            rate(user_logins_total[5m])
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High login failure rate"
+          description: "Login failure rate is above 20% (current: {{ $value | humanizePercentage }})"
+
+      # Product service specific alerts
+      - alert: LowProductInventory
+        expr: product_inventory_total < 10
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low inventory for product {{ $labels.product_id }}"
+          description: "Product {{ $labels.product_id }} has low inventory ({{ $value }} units remaining)"
+
+  - name: infrastructure
+    interval: 30s
+    rules:
+      # RabbitMQ alerts
+      - alert: RabbitMQDown
+        expr: up{job="rabbitmq"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RabbitMQ is down"
+          description: "RabbitMQ message broker is not responding"
+
+      - alert: HighMessageQueueDepth
+        expr: rabbitmq_queue_messages > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High message queue depth in {{ $labels.queue }}"
+          description: "Queue {{ $labels.queue }} has more than 1000 messages pending"
+
+      # Redis alerts
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis cache is down"
+          description: "Redis cache server is not responding"
+
+      - alert: HighRedisMemoryUsage
+        expr: |
+          (
+            redis_memory_used_bytes
+            /
+            redis_memory_max_bytes
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is above 90% (current: {{ $value | humanizePercentage }})"
+
+      # PostgreSQL alerts
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "PostgreSQL database is not responding"
+
+      - alert: HighDatabaseConnections
+        expr: pg_stat_database_numbackends > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of database connections"
+          description: "Database has more than 80 active connections (current: {{ $value }})"

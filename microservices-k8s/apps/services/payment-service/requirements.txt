@@ -1,0 +1,11 @@
+Flask==3.0.0
+Flask-CORS==4.0.0
+Flask-SQLAlchemy==3.1.1
+psycopg2-binary==2.9.9
+razorpay==1.4.1
+python-dotenv==1.0.0
+requests==2.31.0
+PyJWT==2.8.0
+pika==1.3.2
+prometheus-client==0.19.0
+prometheus-flask-exporter==0.23.0

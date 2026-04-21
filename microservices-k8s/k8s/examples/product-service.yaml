@@ -1,0 +1,189 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: ecommerce
+  labels:
+    app: product-service
+    tier: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: product-service
+  ports:
+    - name: http
+      port: 8001
+      targetPort: http
+      protocol: TCP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  namespace: ecommerce
+  labels:
+    app: product-service
+    tier: backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Security context for pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+
+      # Service account (create separately if needed for RBAC)
+      serviceAccountName: product-service
+
+      containers:
+      - name: product-service
+        image: your-registry/product-service:latest
+        imagePullPolicy: IfNotPresent
+
+        ports:
+        - name: http
+          containerPort: 8001
+          protocol: TCP
+
+        # Environment variables from ConfigMap and Secrets
+        env:
+        - name: PORT
+          value: "8001"
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: product-service-config
+              key: db_host
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: product-service-config
+              key: db_port
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: product-service-config
+              key: db_name
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: product-service-secrets
+              key: db_user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: product-service-secrets
+              key: db_password
+        - name: RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secrets
+              key: url
+
+        # Resource limits and requests
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+
+        # Liveness probe - checks if container is alive
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+
+        # Readiness probe - checks if container is ready to serve traffic
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+
+        # Startup probe - for slow-starting containers
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 30
+
+        # Security context for container
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+
+      # Termination grace period
+      terminationGracePeriodSeconds: 30
+
+      # Image pull secrets (if using private registry)
+      # imagePullSecrets:
+      # - name: registry-credentials
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-service-config
+  namespace: ecommerce
+data:
+  db_host: "postgres-products"
+  db_port: "5432"
+  db_name: "products"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: product-service-secrets
+  namespace: ecommerce
+type: Opaque
+stringData:
+  db_user: "ecommerce_user"
+  db_password: "secure_password_123"  # Use sealed-secrets or external-secrets in production
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: product-service
+  namespace: ecommerce

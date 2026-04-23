@@ -22,6 +22,7 @@ const Header = () => {
 
           <nav className="nav">
             <Link to="/" className="nav-link">Products</Link>
+            <Link to="/dashboard" className="nav-link">Ops Dashboard</Link>
             <Link to="/cart" className="nav-link">🛒 Cart</Link>
 
             {user ? (

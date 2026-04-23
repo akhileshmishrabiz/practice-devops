@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -39,5 +39,30 @@ export const clearCart = () => api.delete('/cart');
 export const createOrder = (orderData) => api.post('/orders', orderData);
 export const getOrders = () => api.get('/orders');
 export const getOrder = (id) => api.get(`/orders/${id}`);
+
+// Health/Status API
+export const getServiceHealth = async (serviceName) => {
+  try {
+    const response = await api.get(`/health/${serviceName}`, { timeout: 5000 });
+    return { service: serviceName, status: 'healthy', data: response.data };
+  } catch (err) {
+    return { service: serviceName, status: 'unhealthy', error: err.message };
+  }
+};
+
+export const getAllServicesHealth = async () => {
+  const services = [
+    'product-service',
+    'user-service',
+    'cart-service',
+    'order-service',
+    'payment-service',
+    'notification-service',
+  ];
+  const results = await Promise.allSettled(
+    services.map((s) => getServiceHealth(s))
+  );
+  return results.map((r) => (r.status === 'fulfilled' ? r.value : { service: 'unknown', status: 'unhealthy' }));
+};
 
 export default api;

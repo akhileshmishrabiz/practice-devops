@@ -1,0 +1,765 @@
+# ============================================================
+# API Gateway ConfigMap (K8s-adapted nginx config)
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-gateway-config
+  namespace: ecommerce
+data:
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+    http {
+        resolver kube-dns.kube-system.svc.cluster.local valid=30s;
+
+        server {
+            listen 80;
+            server_name localhost;
+
+            set $product_service product-service.ecommerce.svc.cluster.local:8001;
+            set $user_service user-service.ecommerce.svc.cluster.local:8002;
+            set $cart_service cart-service.ecommerce.svc.cluster.local:8003;
+            set $order_service order-service.ecommerce.svc.cluster.local:8004;
+            set $payment_service payment-service.ecommerce.svc.cluster.local:8005;
+
+            location /api/products {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                rewrite ^/api/products(.*)$ /api/v1/products$1 break;
+                proxy_pass http://$product_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+
+            location /api/users {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                rewrite ^/api/users(.*)$ /api/v1/users$1 break;
+                proxy_pass http://$user_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+
+            location /api/cart {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                rewrite ^/api/cart(.*)$ /api/v1/cart$1 break;
+                proxy_pass http://$cart_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Authorization $http_authorization;
+            }
+
+            location /api/orders {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                rewrite ^/api/orders(.*)$ /api/v1/orders$1 break;
+                proxy_pass http://$order_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Authorization $http_authorization;
+            }
+
+            location /api/payments {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                rewrite ^/api/payments(.*)$ /api/v1/payments$1 break;
+                proxy_pass http://$payment_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Authorization $http_authorization;
+            }
+
+            # Health proxy routes for ops dashboard
+            location = /api/health/product-service {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$product_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+            location = /api/health/user-service {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$user_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+            location = /api/health/cart-service {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$cart_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+            location = /api/health/order-service {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$order_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+            location = /api/health/payment-service {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$payment_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+            location = /api/health/notification-service {
+                set $notification_service notification-service.ecommerce.svc.cluster.local:8006;
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$notification_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+
+            location /health {
+                access_log off;
+                return 200 "OK\n";
+                add_header Content-Type text/plain;
+            }
+        }
+    }
+---
+# ============================================================
+# Product Service
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+    spec:
+      containers:
+        - name: product-service
+          image: product-service:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8001
+          env:
+            - name: PORT
+              value: "8001"
+            - name: GO_ENV
+              value: production
+            - name: PRODUCT_DB_HOST
+              value: postgres-products
+            - name: PRODUCT_DB_PORT
+              value: "5432"
+            - name: PRODUCT_DB_USER
+              value: ecommerce_user
+            - name: PRODUCT_DB_PASSWORD
+              value: secure_password_123
+            - name: PRODUCT_DB_NAME
+              value: products
+            - name: LOG_LEVEL
+              value: info
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: product-service
+  ports:
+    - port: 8001
+      targetPort: 8001
+---
+# ============================================================
+# User Service
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: user-service:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8002
+          env:
+            - name: PORT
+              value: "8002"
+            - name: NODE_ENV
+              value: production
+            - name: USER_DB_HOST
+              value: postgres-users
+            - name: USER_DB_PORT
+              value: "5432"
+            - name: USER_DB_USER
+              value: ecommerce_user
+            - name: USER_DB_PASSWORD
+              value: secure_password_123
+            - name: USER_DB_NAME
+              value: users
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: JWT_EXPIRY
+              value: "24h"
+            - name: LOG_LEVEL
+              value: info
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: user-service
+  ports:
+    - port: 8002
+      targetPort: 8002
+---
+# ============================================================
+# Cart Service
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart-service
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cart-service
+  template:
+    metadata:
+      labels:
+        app: cart-service
+    spec:
+      containers:
+        - name: cart-service
+          image: cart-service:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8003
+          env:
+            - name: PORT
+              value: "8003"
+            - name: NODE_ENV
+              value: production
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              value: redis_password_123
+            - name: REDIS_DB
+              value: "0"
+            - name: PRODUCT_SERVICE_URL
+              value: http://product-service:8001
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: LOG_LEVEL
+              value: info
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: cart-service
+  ports:
+    - port: 8003
+      targetPort: 8003
+---
+# ============================================================
+# Order Service
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: order-service:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8004
+          env:
+            - name: PORT
+              value: "8004"
+            - name: GO_ENV
+              value: production
+            - name: ORDER_DB_HOST
+              value: postgres-orders
+            - name: ORDER_DB_PORT
+              value: "5432"
+            - name: ORDER_DB_USER
+              value: ecommerce_user
+            - name: ORDER_DB_PASSWORD
+              value: secure_password_123
+            - name: ORDER_DB_NAME
+              value: orders
+            - name: RABBITMQ_HOST
+              value: rabbitmq
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              value: rabbitmq
+            - name: RABBITMQ_PASSWORD
+              value: secure_rabbitmq_password
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: CART_SERVICE_URL
+              value: http://cart-service:8003
+            - name: PRODUCT_SERVICE_URL
+              value: http://product-service:8001
+            - name: LOG_LEVEL
+              value: info
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: order-service
+  ports:
+    - port: 8004
+      targetPort: 8004
+---
+# ============================================================
+# Payment Service
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: payment-service:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8005
+          env:
+            - name: PORT
+              value: "8005"
+            - name: FLASK_ENV
+              value: development
+            - name: PAYMENT_DB_HOST
+              value: postgres-payments
+            - name: PAYMENT_DB_PORT
+              value: "5432"
+            - name: PAYMENT_DB_USER
+              value: ecommerce_user
+            - name: PAYMENT_DB_PASSWORD
+              value: secure_password_123
+            - name: PAYMENT_DB_NAME
+              value: payments
+            - name: RAZORPAY_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RAZORPAY_KEY_ID
+            - name: RAZORPAY_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RAZORPAY_KEY_SECRET
+            - name: RAZORPAY_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RAZORPAY_WEBHOOK_SECRET
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: ORDER_SERVICE_URL
+              value: http://order-service:8004
+            - name: LOG_LEVEL
+              value: INFO
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8005
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8005
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - port: 8005
+      targetPort: 8005
+---
+# ============================================================
+# Notification Service
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: notification-service:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8006
+          env:
+            - name: PORT
+              value: "8006"
+            - name: FLASK_ENV
+              value: development
+            - name: RABBITMQ_HOST
+              value: rabbitmq
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              value: rabbitmq
+            - name: RABBITMQ_PASSWORD
+              value: secure_rabbitmq_password
+            - name: AWS_ACCESS_KEY_ID
+              value: placeholder
+            - name: AWS_SECRET_ACCESS_KEY
+              value: placeholder
+            - name: AWS_REGION
+              value: us-east-1
+            - name: SES_SENDER_EMAIL
+              value: noreply@example.com
+            - name: LOG_LEVEL
+              value: INFO
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8006
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8006
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - port: 8006
+      targetPort: 8006
+---
+# ============================================================
+# API Gateway
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        - name: config
+          configMap:
+            name: api-gateway-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: ecommerce
+spec:
+  type: NodePort
+  selector:
+    app: api-gateway
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+---
+# ============================================================
+# Frontend
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: frontend:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: ecommerce
+spec:
+  type: NodePort
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30000

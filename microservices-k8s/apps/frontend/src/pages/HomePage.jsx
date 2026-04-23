@@ -40,7 +40,7 @@ const HomePage = () => {
     }
   };
 
-  const categories = ['All', 'Electronics', 'Clothing', 'Footwear'];
+  const categories = ['All', 'Electronics', 'Clothing', 'Footwear', 'Accessories', 'Gaming', 'Home & Kitchen'];
 
   return (
     <div className="container">

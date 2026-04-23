@@ -146,6 +146,14 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		log.WithError(err).Warn("Failed to publish order event")
 	}
 
+	// Clear cart after successful order
+	clearCartURL := fmt.Sprintf("%s/api/v1/cart", h.CartServiceURL)
+	clearReq, _ := http.NewRequest("DELETE", clearCartURL, nil)
+	clearReq.Header.Set("Authorization", c.GetHeader("Authorization"))
+	if _, err := client.Do(clearReq); err != nil {
+		log.WithError(err).Warn("Failed to clear cart after order")
+	}
+
 	log.WithField("order_id", order.ID).Info("Order created successfully")
 
 	c.JSON(http.StatusCreated, order)
@@ -188,6 +196,21 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 	var req models.UpdateOrderStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate status
+	validStatuses := map[models.OrderStatus]bool{
+		models.OrderStatusPending:        true,
+		models.OrderStatusPaymentPending: true,
+		models.OrderStatusConfirmed:      true,
+		models.OrderStatusProcessing:     true,
+		models.OrderStatusShipped:        true,
+		models.OrderStatusDelivered:      true,
+		models.OrderStatusCancelled:      true,
+	}
+	if !validStatuses[req.Status] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status. Must be one of: pending, payment_pending, confirmed, processing, shipped, delivered, cancelled"})
 		return
 	}
 

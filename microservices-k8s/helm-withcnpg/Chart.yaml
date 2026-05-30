@@ -1,0 +1,14 @@
+apiVersion: v2
+name: ecommerce-cnpg
+description: E-commerce microservices platform using CloudNativePG for PostgreSQL
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - ecommerce
+  - microservices
+  - kubernetes
+  - cloudnativepg
+  - cnpg
+maintainers:
+  - name: DevOps Team

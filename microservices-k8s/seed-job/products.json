@@ -1,0 +1,99 @@
+{
+  "store": {
+    "name": "Livingdevops",
+    "tagline": "Learn. Build. Deploy.",
+    "image_base_url": "${IMAGE_BASE_URL:-http://localhost:3000}"
+  },
+  "products": [
+    {
+      "name": "Livingdevops Classic Tee",
+      "description": "Premium black cotton t-shirt with the iconic >_ Livingdevops logo. Soft, breathable fabric for long coding sessions and conference days. Available in unisex sizing — wear your DevOps pride.",
+      "price": 29.99,
+      "stock": 100,
+      "category": "Merchandise",
+      "image_url": "/products/livingdevops-tshirt.png",
+      "sku": "MER-TSH-001",
+      "is_active": true
+    },
+    {
+      "name": "Livingdevops Dev Mug",
+      "description": "Matte black ceramic mug with cyan >_ branding. Holds 350ml of your favorite fuel — coffee, tea, or kubectl commands. Microwave safe. The official mug of late-night deploys.",
+      "price": 19.99,
+      "stock": 75,
+      "category": "Merchandise",
+      "image_url": "/products/livingdevops-mug.png",
+      "sku": "MER-MUG-001",
+      "is_active": true
+    },
+    {
+      "name": "Livingdevops Sticker Pack",
+      "description": "Set of 3 premium vinyl die-cut stickers: >_ terminal badge, Kubernetes wheel, and Livingdevops wordmark. Weatherproof and laptop-safe. Show the world you live DevOps.",
+      "price": 9.99,
+      "stock": 200,
+      "category": "Merchandise",
+      "image_url": "/products/livingdevops-stickers.png",
+      "sku": "MER-STK-001",
+      "is_active": true
+    },
+    {
+      "name": "Kubernetes in Production",
+      "description": "The definitive eBook for running Kubernetes in real environments. Covers cluster design, workloads, networking, storage, security, and troubleshooting — written from hands-on EKS and Kind experience.",
+      "price": 14.99,
+      "stock": 9999,
+      "category": "Ebooks",
+      "image_url": "https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=400&h=400&fit=crop",
+      "sku": "EBK-K8S-001",
+      "is_active": true
+    },
+    {
+      "name": "The DevOps Builder's Handbook",
+      "description": "A practical eBook on building cloud-native systems from scratch. CI/CD pipelines, infrastructure as code, observability, and the mindset shift from ops to DevOps engineering.",
+      "price": 12.99,
+      "stock": 9999,
+      "category": "Ebooks",
+      "image_url": "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=400&h=400&fit=crop",
+      "sku": "EBK-DEV-001",
+      "is_active": true
+    },
+    {
+      "name": "Microservices Patterns Cheat Sheet",
+      "description": "Compact eBook reference covering API gateways, event-driven architecture, saga patterns, circuit breakers, and service mesh — mapped to the 6-service Livingdevops platform.",
+      "price": 7.99,
+      "stock": 9999,
+      "category": "Ebooks",
+      "image_url": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=400&fit=crop",
+      "sku": "EBK-MSA-001",
+      "is_active": true
+    },
+    {
+      "name": "CKA Crash Course",
+      "description": "Intensive video course preparing you for the Certified Kubernetes Administrator exam. 8 modules with hands-on labs on this very platform — pods, services, ingress, RBAC, and troubleshooting.",
+      "price": 49.99,
+      "stock": 500,
+      "category": "Courses",
+      "image_url": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=400&fit=crop",
+      "sku": "CRS-CKA-001",
+      "is_active": true
+    },
+    {
+      "name": "EKS from Zero to Production",
+      "description": "Complete course on deploying production-grade Amazon EKS clusters. Node groups, IRSA, ALB ingress, CloudNativePG, Vault secrets, and GitOps with ArgoCD — end to end.",
+      "price": 79.99,
+      "stock": 300,
+      "category": "Courses",
+      "image_url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&h=400&fit=crop",
+      "sku": "CRS-EKS-001",
+      "is_active": true
+    },
+    {
+      "name": "GitOps with ArgoCD Masterclass",
+      "description": "Learn continuous delivery the GitOps way. ApplicationSets, sync policies, progressive rollouts, and managing multi-environment deployments — using the Livingdevops repo as your lab.",
+      "price": 44.99,
+      "stock": 400,
+      "category": "Courses",
+      "image_url": "https://images.unsplash.com/photo-1618477388954-7859fbf5fc64?w=400&h=400&fit=crop",
+      "sku": "CRS-ARG-001",
+      "is_active": true
+    }
+  ]
+}

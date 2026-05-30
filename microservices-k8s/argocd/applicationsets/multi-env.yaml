@@ -1,0 +1,109 @@
+# ApplicationSet - Deploy to Multiple Environments from Single Definition
+# This is the preferred production pattern for managing multiple environments
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ecommerce-environments
+  namespace: argocd
+spec:
+  generators:
+    # List generator for multiple environments
+    - list:
+        elements:
+          - env: dev
+            namespace: ecommerce-dev
+            revision: main
+            replicas: "1"
+            autoSync: "true"
+          - env: staging
+            namespace: ecommerce-staging
+            revision: main
+            replicas: "2"
+            autoSync: "true"
+          - env: production
+            namespace: ecommerce-prod
+            revision: v1.2.0  # Pinned tag
+            replicas: "3"
+            autoSync: "false"  # Manual for prod
+
+  template:
+    metadata:
+      name: 'ecommerce-{{env}}'
+      labels:
+        environment: '{{env}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/YOUR_USERNAME/microservices-k8s.git
+        targetRevision: '{{revision}}'
+        path: helm/ecommerce
+        helm:
+          valueFiles:
+            - values.yaml
+            - 'values-{{env}}.yaml'
+          parameters:
+            - name: global.environment
+              value: '{{env}}'
+            - name: replicaCount
+              value: '{{replicas}}'
+
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+        # Conditional automated sync based on environment
+        automated:
+          prune: true
+          selfHeal: true
+
+---
+# ApplicationSet with Git Generator - Auto-discover branches/PRs
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ecommerce-preview
+  namespace: argocd
+spec:
+  generators:
+    # Create preview environments for each PR
+    - pullRequest:
+        github:
+          owner: YOUR_USERNAME
+          repo: microservices-k8s
+          tokenRef:
+            secretName: github-token
+            key: token
+        requeueAfterSeconds: 60
+
+  template:
+    metadata:
+      name: 'ecommerce-pr-{{number}}'
+      labels:
+        app: ecommerce-preview
+        pr: '{{number}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/YOUR_USERNAME/microservices-k8s.git
+        targetRevision: '{{head_sha}}'
+        path: helm/ecommerce
+        helm:
+          parameters:
+            - name: global.environment
+              value: preview
+            - name: ingress.host
+              value: 'pr-{{number}}.preview.example.com'
+
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'preview-pr-{{number}}'
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

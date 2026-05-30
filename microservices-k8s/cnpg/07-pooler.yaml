@@ -1,0 +1,122 @@
+# CloudNativePG Pooler Configuration
+#
+# Poolers provide PgBouncer-based connection pooling in front of PostgreSQL.
+# Benefits:
+#   - Reduces connection overhead on PostgreSQL
+#   - Better handling of many short-lived connections
+#   - Connection limits enforcement
+#   - Automatic reconnection on failover
+#
+# Service names created:
+#   - <pooler-name>  (e.g., products-pooler-rw:5432)
+#
+# Note: Poolers are OPTIONAL. Direct connection to cluster services
+#       works fine for most use cases.
+# ============================================================
+
+---
+# Products Database Pooler (Read-Write)
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: products-pooler-rw
+  namespace: ecommerce
+spec:
+  # Reference to the CNPG cluster
+  cluster:
+    name: products
+
+  # Number of pooler instances
+  instances: 1
+
+  # Type: rw (read-write to primary) or ro (read-only to replicas)
+  type: rw
+
+  # PgBouncer configuration
+  pgbouncer:
+    # Pool mode: session, transaction, or statement
+    # - session: Connection assigned for entire session (default PostgreSQL behavior)
+    # - transaction: Connection reused after each transaction (recommended)
+    # - statement: Connection reused after each statement (use with caution)
+    poolMode: transaction
+
+    # Connection limits
+    parameters:
+      max_client_conn: "100"
+      default_pool_size: "10"
+      min_pool_size: "5"
+      reserve_pool_size: "5"
+      reserve_pool_timeout: "5"
+
+  # Template for pooler pods
+  template:
+    metadata:
+      labels:
+        app: products-pooler
+    spec:
+      containers:
+        - name: pgbouncer
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+
+---
+# Users Database Pooler (Read-Write)
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: users-pooler-rw
+  namespace: ecommerce
+spec:
+  cluster:
+    name: users
+  instances: 1
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      max_client_conn: "100"
+      default_pool_size: "10"
+      min_pool_size: "5"
+
+---
+# Orders Database Pooler (Read-Write)
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: orders-pooler-rw
+  namespace: ecommerce
+spec:
+  cluster:
+    name: orders
+  instances: 1
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      max_client_conn: "100"
+      default_pool_size: "10"
+      min_pool_size: "5"
+
+---
+# Payments Database Pooler (Read-Write)
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: payments-pooler-rw
+  namespace: ecommerce
+spec:
+  cluster:
+    name: payments
+  instances: 1
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      max_client_conn: "100"
+      default_pool_size: "10"
+      min_pool_size: "5"

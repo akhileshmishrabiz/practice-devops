@@ -1,0 +1,190 @@
+# Global settings
+global:
+  namespace: ecommerce
+  environment: development
+  imagePullPolicy: Never
+
+# Database credentials
+database:
+  user: ecommerce_user
+  password: secure_password_123
+
+# Redis configuration
+redis:
+  enabled: true
+  image: redis:7-alpine
+  password: redis_password_123
+  maxMemory: 256mb
+  resources:
+    requests: 
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# RabbitMQ configuration
+rabbitmq:
+  enabled: true
+  image: rabbitmq:3.12-management-alpine
+  user: rabbitmq
+  password: secure_rabbitmq_password
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# PostgreSQL databases
+postgres:
+  image: postgres:15-alpine
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  databases:
+    - name: products
+    - name: users
+    - name: orders
+    - name: payments
+
+# Application secrets
+secrets:
+  jwtSecret: your-super-secret-jwt-key-change-this-in-production-min-32-chars
+  razorpay:
+    keyId: rzp_test_placeholder
+    keySecret: placeholder_secret
+    webhookSecret: whsec_placeholder
+
+# Service configurations
+services:
+  productService:
+    enabled: true
+    image: product-service:local
+    port: 8001
+    replicas: 1
+    env: production
+    logLevel: info
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  userService:
+    enabled: true
+    image: user-service:local
+    port: 8002
+    replicas: 1
+    env: production
+    jwtExpiry: "24h"
+    logLevel: info
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  cartService:
+    enabled: true
+    image: cart-service:local
+    port: 8003
+    replicas: 1
+    env: production
+    logLevel: info
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  orderService:
+    enabled: true
+    image: order-service:local
+    port: 8004
+    replicas: 1
+    env: production
+    logLevel: info
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  paymentService:
+    enabled: true
+    image: payment-service:local
+    port: 8005
+    replicas: 1
+    env: development
+    logLevel: INFO
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  notificationService:
+    enabled: true
+    image: notification-service:local
+    port: 8006
+    replicas: 1
+    env: development
+    logLevel: INFO
+    aws:
+      accessKeyId: placeholder
+      secretAccessKey: placeholder
+      region: us-east-1
+      sesSenderEmail: noreply@example.com
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+# API Gateway
+apiGateway:
+  enabled: true
+  image: nginx:alpine
+  replicas: 1
+  nodePort: 30080
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Frontend
+frontend:
+  enabled: true
+  image: frontend:local
+  replicas: 1
+  nodePort: 30000
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

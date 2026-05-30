@@ -1,0 +1,47 @@
+# ArgoCD Application - Basic Setup
+# This deploys the ecommerce Helm chart from a Git repository
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecommerce
+  namespace: argocd
+  # Finalizer ensures proper cleanup when app is deleted
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # Change this to your actual Git repository URL
+    repoURL: https://github.com/YOUR_USERNAME/microservices-k8s.git
+    targetRevision: main
+    path: helm/ecommerce
+
+    helm:
+      # Override values for this environment
+      valueFiles:
+        - values.yaml
+      # Inline parameter overrides (optional)
+      # parameters:
+      #   - name: global.environment
+      #     value: development
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce
+
+  syncPolicy:
+    automated:
+      prune: true        # Delete resources removed from Git
+      selfHeal: true     # Revert manual changes to match Git
+      allowEmpty: false  # Don't sync if manifests are empty
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

@@ -1,0 +1,281 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Service coverage (6 microservices)",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false
+    },
+    {
+      "id": 2,
+      "title": "Services reporting traffic",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Should be 6: product, order, cart, user, payment, notification.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "short",
+          "decimals": 3
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "expr": "count(((\n  label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=~\"product-service|order-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=\"cart-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or sum(rate(http_request_duration_seconds_count{kubernetes_namespace=\"ecommerce\", service=\"user-service\"} [$__rate_interval])) by (service)\n  or label_replace(sum(rate(flask_http_request_total{kubernetes_namespace=\"ecommerce\", app=~\"payment-service|notification-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n)) > 0)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Request rate by service (verify 6 lines)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 20,
+        "x": 4,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Each line = one microservice. If fewer than 6, check Prometheus scrape targets.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(\n  label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=~\"product-service|order-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=\"cart-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or sum(rate(http_request_duration_seconds_count{kubernetes_namespace=\"ecommerce\", service=\"user-service\"} [$__rate_interval])) by (service)\n  or label_replace(sum(rate(flask_http_request_total{kubernetes_namespace=\"ecommerce\", app=~\"payment-service|notification-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n)",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Platform burn rate",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum((\n  label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=~\"product-service|order-service\", status=~\"5..\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=\"cart-service\", status_code=~\"5..\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or sum(rate(http_request_duration_seconds_count{kubernetes_namespace=\"ecommerce\", service=\"user-service\", status_code=~\"5..\"} [$__rate_interval])) by (service)\n  or label_replace(sum(rate(flask_http_request_total{kubernetes_namespace=\"ecommerce\", app=~\"payment-service|notification-service\", status=~\"5..\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n)) / sum((\n  label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=~\"product-service|order-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=\"cart-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or sum(rate(http_request_duration_seconds_count{kubernetes_namespace=\"ecommerce\", service=\"user-service\"} [$__rate_interval])) by (service)\n  or label_replace(sum(rate(flask_http_request_total{kubernetes_namespace=\"ecommerce\", app=~\"payment-service|notification-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n))) / (1 - (${slo_availability:raw} / 100))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Error rate by service",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(\n  label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=~\"product-service|order-service\", status=~\"5..\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=\"cart-service\", status_code=~\"5..\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or sum(rate(http_request_duration_seconds_count{kubernetes_namespace=\"ecommerce\", service=\"user-service\", status_code=~\"5..\"} [$__rate_interval])) by (service)\n  or label_replace(sum(rate(flask_http_request_total{kubernetes_namespace=\"ecommerce\", app=~\"payment-service|notification-service\", status=~\"5..\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n) / (\n  label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=~\"product-service|order-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or label_replace(sum(rate(http_requests_total{kubernetes_namespace=\"ecommerce\", app=\"cart-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n  or sum(rate(http_request_duration_seconds_count{kubernetes_namespace=\"ecommerce\", service=\"user-service\"} [$__rate_interval])) by (service)\n  or label_replace(sum(rate(flask_http_request_total{kubernetes_namespace=\"ecommerce\", app=~\"payment-service|notification-service\"} [$__rate_interval])) by (app), \"service\", \"$1\", \"app\", \"(.*)\")\n)",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "education",
+    "slo",
+    "burn-rate",
+    "slo-folder"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "label": "Datasource"
+      },
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "query": "label_values(up{kubernetes_namespace=\"ecommerce\", app=~\"product-service|order-service|cart-service|payment-service|notification-service|user-service\"}, app)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "label": "Service"
+      },
+      {
+        "name": "slo_availability",
+        "type": "constant",
+        "label": "Availability SLO (%)",
+        "query": "99.9"
+      },
+      {
+        "name": "slo_latency_ms",
+        "type": "constant",
+        "label": "Latency SLO (ms)",
+        "query": "500"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "SLO Burn Rate",
+  "uid": "slo-08-burn-rate",
+  "version": 2
+}

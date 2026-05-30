@@ -1,0 +1,202 @@
+# Global settings
+global:
+  namespace: ecommerce
+  environment: development
+  imagePullPolicy: Never
+
+# Vault configuration
+# Secrets are managed by Vault + External Secrets Operator
+vault:
+  address: "http://vault.vault.svc.cluster.local:8200"
+  secretPath: "secret/data/ecommerce"
+
+# Redis configuration (password from Vault)
+redis:
+  enabled: true
+  image: redis:7-alpine
+  maxMemory: 256mb
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# RabbitMQ configuration (credentials from Vault)
+rabbitmq:
+  enabled: true
+  image: rabbitmq:3.12-management-alpine
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Database credentials for CNPG bootstrap
+# These match the secrets stored in Vault
+database:
+  user: ecommerce_user
+  password: secure_db_password_123
+
+# CloudNativePG Configuration (credentials from Vault)
+# Uses CNPG operator for HA PostgreSQL clusters
+cnpg:
+  enabled: true
+  image: ghcr.io/cloudnative-pg/postgresql:15.4
+  instances: 1
+  storage: 1Gi
+  superuserPassword: postgres_superuser_pass_123
+  # PostgreSQL parameters
+  postgresql:
+    max_connections: "100"
+    shared_buffers: "128MB"
+    effective_cache_size: "256MB"
+    work_mem: "4MB"
+    maintenance_work_mem: "64MB"
+  # Resources per PostgreSQL pod
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # Monitoring
+  monitoring:
+    enablePodMonitor: false
+  # Databases to create
+  databases:
+    - name: products
+    - name: users
+    - name: orders
+    - name: payments
+
+# Service configurations
+# Note: All secrets (JWT, Razorpay, AWS) are managed via Vault
+services:
+  productService:
+    enabled: true
+    image: product-service:local
+    port: 8001
+    replicas: 1
+    env: production
+    logLevel: info
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  userService:
+    enabled: true
+    image: user-service:local
+    port: 8002
+    replicas: 1
+    env: production
+    jwtExpiry: "24h"
+    logLevel: info
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  cartService:
+    enabled: true
+    image: cart-service:local
+    port: 8003
+    replicas: 1
+    env: production
+    logLevel: info
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  orderService:
+    enabled: true
+    image: order-service:local
+    port: 8004
+    replicas: 1
+    env: production
+    logLevel: info
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  paymentService:
+    enabled: true
+    image: payment-service:local
+    port: 8005
+    replicas: 1
+    env: development
+    logLevel: INFO
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  notificationService:
+    enabled: true
+    image: notification-service:local
+    port: 8006
+    replicas: 1
+    env: development
+    logLevel: INFO
+    aws:
+      region: us-east-1
+      sesSenderEmail: noreply@example.com
+      # credentials from Vault (aws-credentials secret)
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+# API Gateway
+apiGateway:
+  enabled: true
+  image: nginx:alpine
+  replicas: 1
+  nodePort: 30080
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Frontend
+frontend:
+  enabled: true
+  image: frontend:local
+  replicas: 1
+  nodePort: 30000
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

@@ -1,0 +1,61 @@
+# RBAC permissions for the SimpleApp operator
+# The operator needs permission to watch SimpleApps and manage Deployments/Services
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: simpleapp-operator
+  namespace: default
+
+---
+# ClusterRole defines what the operator can do
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: simpleapp-operator
+rules:
+  # Watch and update SimpleApp resources
+  - apiGroups: ["apps.example.com"]
+    resources: ["simpleapps"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+
+  # Update SimpleApp status
+  - apiGroups: ["apps.example.com"]
+    resources: ["simpleapps/status"]
+    verbs: ["update", "patch"]
+
+  # Manage Deployments
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # Manage Services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # Manage ConfigMaps (for nginx config)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # Events (for logging what the operator does)
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+
+---
+# Bind the ClusterRole to the ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: simpleapp-operator
+subjects:
+  - kind: ServiceAccount
+    name: simpleapp-operator
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: simpleapp-operator
+  apiGroup: rbac.authorization.k8s.io

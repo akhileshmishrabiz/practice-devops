@@ -1,0 +1,71 @@
+# CloudNativePG Cluster: Payments Database
+#
+# This defines a PostgreSQL cluster for the Payment Service.
+# Payment data is highly sensitive - consider encryption at rest
+# and stricter security policies in production.
+# ============================================================
+
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: payments
+  namespace: ecommerce
+  labels:
+    app: payments-db
+    service: payment-service
+spec:
+  instances: 2
+
+  imageName: ghcr.io/cloudnative-pg/postgresql:15.4
+
+  superuserSecret:
+    name: payments-superuser
+
+  bootstrap:
+    initdb:
+      database: payments
+      owner: ecommerce_user
+      secret:
+        name: payments-app
+      postInitSQL:
+        - GRANT ALL PRIVILEGES ON DATABASE payments TO ecommerce_user
+        - ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO ecommerce_user
+        - ALTER DEFAULT PRIVILEGES GRANT ALL ON SEQUENCES TO ecommerce_user
+
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+      effective_cache_size: "256MB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      wal_buffers: "4MB"
+      log_statement: "all"  # Log all statements for payment audit
+      log_connections: "on"
+      log_disconnections: "on"
+      # For payment systems, consider synchronous replication
+      # synchronous_commit: "on"
+
+  storage:
+    size: 1Gi
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  monitoring:
+    enablePodMonitor: false
+
+  primaryUpdateStrategy: unsupervised
+  failoverDelay: 0
+  switchoverDelay: 10
+
+  # For production payment databases, consider adding:
+  # backup:
+  #   barmanObjectStore:
+  #     destinationPath: s3://backups/payments
+  #     ...

@@ -1,0 +1,94 @@
+{{- if .Values.services.orderService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: order-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.services.orderService.replicas }}
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: {{ .Values.services.orderService.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.services.orderService.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.services.orderService.port | quote }}
+            - name: GO_ENV
+              value: {{ .Values.services.orderService.env }}
+            - name: ORDER_DB_HOST
+              value: postgres-orders
+            - name: ORDER_DB_PORT
+              value: "5432"
+            - name: ORDER_DB_USER
+              value: {{ .Values.database.user }}
+            - name: ORDER_DB_PASSWORD
+              value: {{ .Values.database.password }}
+            - name: ORDER_DB_NAME
+              value: orders
+            - name: RABBITMQ_HOST
+              value: rabbitmq
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              value: {{ .Values.rabbitmq.user }}
+            - name: RABBITMQ_PASSWORD
+              value: {{ .Values.rabbitmq.password }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: CART_SERVICE_URL
+              value: http://cart-service:{{ .Values.services.cartService.port }}
+            - name: PRODUCT_SERVICE_URL
+              value: http://product-service:{{ .Values.services.productService.port }}
+            - name: LOG_LEVEL
+              value: {{ .Values.services.orderService.logLevel }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.orderService.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.orderService.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ .Values.services.orderService.resources.requests.cpu }}
+              memory: {{ .Values.services.orderService.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.services.orderService.resources.limits.cpu }}
+              memory: {{ .Values.services.orderService.resources.limits.memory }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: order-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: order-service
+  ports:
+    - port: {{ .Values.services.orderService.port }}
+      targetPort: {{ .Values.services.orderService.port }}
+{{- end }}

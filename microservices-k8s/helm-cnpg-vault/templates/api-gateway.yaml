@@ -1,0 +1,222 @@
+{{- if .Values.apiGateway.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-gateway-config
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+    http {
+        resolver kube-dns.kube-system.svc.cluster.local valid=30s;
+
+        server {
+            listen 80;
+            server_name localhost;
+
+            set $product_service product-service.{{ include "ecommerce.namespace" . }}.svc.cluster.local:{{ .Values.services.productService.port }};
+            set $user_service user-service.{{ include "ecommerce.namespace" . }}.svc.cluster.local:{{ .Values.services.userService.port }};
+            set $cart_service cart-service.{{ include "ecommerce.namespace" . }}.svc.cluster.local:{{ .Values.services.cartService.port }};
+            set $order_service order-service.{{ include "ecommerce.namespace" . }}.svc.cluster.local:{{ .Values.services.orderService.port }};
+            set $payment_service payment-service.{{ include "ecommerce.namespace" . }}.svc.cluster.local:{{ .Values.services.paymentService.port }};
+
+            location /api/products {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                rewrite ^/api/products(.*)$ /api/v1/products$1 break;
+                proxy_pass http://$product_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+
+            location /api/users {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                rewrite ^/api/users(.*)$ /api/v1/users$1 break;
+                proxy_pass http://$user_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+
+            location /api/cart {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                rewrite ^/api/cart(.*)$ /api/v1/cart$1 break;
+                proxy_pass http://$cart_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Authorization $http_authorization;
+            }
+
+            location /api/orders {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                rewrite ^/api/orders(.*)$ /api/v1/orders$1 break;
+                proxy_pass http://$order_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Authorization $http_authorization;
+            }
+
+            location /api/payments {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept, Authorization' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                rewrite ^/api/payments(.*)$ /api/v1/payments$1 break;
+                proxy_pass http://$payment_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Authorization $http_authorization;
+            }
+
+            # Health proxy routes for ops dashboard
+            location = /api/health/product-service {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$product_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+            location = /api/health/user-service {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$user_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+            location = /api/health/cart-service {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$cart_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+            location = /api/health/order-service {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$order_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+            location = /api/health/payment-service {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$payment_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+            location = /api/health/notification-service {
+                set $notification_service notification-service.{{ include "ecommerce.namespace" . }}.svc.cluster.local:{{ .Values.services.notificationService.port }};
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Origin, Content-Type, Accept' always;
+                if ($request_method = 'OPTIONS') { return 204; }
+                proxy_pass http://$notification_service/health;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 3s;
+                proxy_read_timeout 3s;
+            }
+
+            location /health {
+                access_log off;
+                return 200 "OK\n";
+                add_header Content-Type text/plain;
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: api-gateway
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.apiGateway.replicas }}
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.apiGateway.image }}
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: {{ .Values.apiGateway.resources.requests.cpu }}
+              memory: {{ .Values.apiGateway.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.apiGateway.resources.limits.cpu }}
+              memory: {{ .Values.apiGateway.resources.limits.memory }}
+      volumes:
+        - name: config
+          configMap:
+            name: api-gateway-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: api-gateway
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  type: NodePort
+  selector:
+    app: api-gateway
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: {{ .Values.apiGateway.nodePort }}
+{{- end }}

@@ -1,0 +1,174 @@
+# Simple shell-based operator for educational purposes
+# In production, use Go with Kubebuilder or Python with Kopf
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: simpleapp-operator-script
+  namespace: default
+data:
+  operator.sh: |
+    #!/bin/bash
+    # Simple operator loop - watches SimpleApps and creates Deployments/Services
+
+    echo "SimpleApp Operator starting..."
+
+    while true; do
+      echo "$(date): Reconciling SimpleApps..."
+
+      # Get all SimpleApps as JSON
+      kubectl get simpleapps -A -o json 2>/dev/null | jq -c '.items[]' | while read -r app; do
+        NAME=$(echo "$app" | jq -r '.metadata.name')
+        NAMESPACE=$(echo "$app" | jq -r '.metadata.namespace')
+        IMAGE=$(echo "$app" | jq -r '.spec.image')
+        REPLICAS=$(echo "$app" | jq -r '.spec.replicas // 1')
+        PORT=$(echo "$app" | jq -r '.spec.port // 80')
+        MESSAGE=$(echo "$app" | jq -r '.spec.message // "Hello!"')
+
+        echo "  Processing: $NAMESPACE/$NAME (image=$IMAGE, replicas=$REPLICAS)"
+
+        # Create/Update ConfigMap for nginx message
+        cat <<EOF | kubectl apply -f - 2>/dev/null
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: ${NAME}-config
+      namespace: ${NAMESPACE}
+      ownerReferences:
+        - apiVersion: apps.example.com/v1
+          kind: SimpleApp
+          name: ${NAME}
+          uid: $(echo "$app" | jq -r '.metadata.uid')
+    data:
+      index.html: |
+        <!DOCTYPE html>
+        <html>
+        <head><title>${NAME}</title></head>
+        <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+          <h1>${MESSAGE}</h1>
+          <p>App: ${NAME}</p>
+          <p>Namespace: ${NAMESPACE}</p>
+          <p>Managed by SimpleApp Operator</p>
+        </body>
+        </html>
+    EOF
+
+        # Create/Update Deployment
+        cat <<EOF | kubectl apply -f - 2>/dev/null
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: ${NAME}
+      namespace: ${NAMESPACE}
+      ownerReferences:
+        - apiVersion: apps.example.com/v1
+          kind: SimpleApp
+          name: ${NAME}
+          uid: $(echo "$app" | jq -r '.metadata.uid')
+    spec:
+      replicas: ${REPLICAS}
+      selector:
+        matchLabels:
+          app: ${NAME}
+          managed-by: simpleapp-operator
+      template:
+        metadata:
+          labels:
+            app: ${NAME}
+            managed-by: simpleapp-operator
+        spec:
+          containers:
+            - name: app
+              image: ${IMAGE}
+              ports:
+                - containerPort: ${PORT}
+              volumeMounts:
+                - name: html
+                  mountPath: /usr/share/nginx/html
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+          volumes:
+            - name: html
+              configMap:
+                name: ${NAME}-config
+    EOF
+
+        # Create/Update Service
+        cat <<EOF | kubectl apply -f - 2>/dev/null
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${NAME}
+      namespace: ${NAMESPACE}
+      ownerReferences:
+        - apiVersion: apps.example.com/v1
+          kind: SimpleApp
+          name: ${NAME}
+          uid: $(echo "$app" | jq -r '.metadata.uid')
+    spec:
+      selector:
+        app: ${NAME}
+        managed-by: simpleapp-operator
+      ports:
+        - port: 80
+          targetPort: ${PORT}
+      type: ClusterIP
+    EOF
+
+        # Update status
+        AVAILABLE=$(kubectl get deployment ${NAME} -n ${NAMESPACE} -o jsonpath='{.status.availableReplicas}' 2>/dev/null || echo "0")
+        PHASE="Running"
+        [ "$AVAILABLE" = "0" ] && PHASE="Pending"
+
+        kubectl patch simpleapp ${NAME} -n ${NAMESPACE} --type=merge --subresource=status \
+          -p "{\"status\":{\"availableReplicas\":${AVAILABLE:-0},\"phase\":\"${PHASE}\",\"lastUpdated\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}" 2>/dev/null || true
+
+      done
+
+      sleep 10
+    done
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simpleapp-operator
+  namespace: default
+  labels:
+    app: simpleapp-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: simpleapp-operator
+  template:
+    metadata:
+      labels:
+        app: simpleapp-operator
+    spec:
+      serviceAccountName: simpleapp-operator
+      containers:
+        - name: operator
+          image: bitnami/kubectl:latest
+          command: ["/bin/bash", "/scripts/operator.sh"]
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        - name: scripts
+          configMap:
+            name: simpleapp-operator-script
+            defaultMode: 0755

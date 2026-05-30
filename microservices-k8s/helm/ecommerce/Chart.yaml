@@ -1,0 +1,12 @@
+apiVersion: v2
+name: ecommerce
+description: E-commerce microservices platform with 6 services, PostgreSQL, Redis, and RabbitMQ
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - ecommerce
+  - microservices
+  - kubernetes
+maintainers:
+  - name: DevOps Team

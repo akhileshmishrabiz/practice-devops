@@ -1,0 +1,83 @@
+{{- if .Values.services.productService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: product-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.services.productService.replicas }}
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+    spec:
+      containers:
+        - name: product-service
+          image: {{ .Values.services.productService.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.services.productService.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.services.productService.port | quote }}
+            - name: GO_ENV
+              value: {{ .Values.services.productService.env }}
+            - name: PRODUCT_DB_HOST
+              value: products-rw
+            - name: PRODUCT_DB_PORT
+              value: "5432"
+            - name: PRODUCT_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_USER
+            - name: PRODUCT_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_PASSWORD
+            - name: PRODUCT_DB_NAME
+              value: products
+            - name: LOG_LEVEL
+              value: {{ .Values.services.productService.logLevel }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.productService.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.productService.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ .Values.services.productService.resources.requests.cpu }}
+              memory: {{ .Values.services.productService.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.services.productService.resources.limits.cpu }}
+              memory: {{ .Values.services.productService.resources.limits.memory }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: product-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: product-service
+  ports:
+    - port: {{ .Values.services.productService.port }}
+      targetPort: {{ .Values.services.productService.port }}
+{{- end }}

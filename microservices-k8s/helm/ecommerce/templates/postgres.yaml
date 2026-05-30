@@ -1,0 +1,83 @@
+{{- range .Values.postgres.databases }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-{{ .name }}
+  namespace: {{ include "ecommerce.namespace" $ }}
+  labels:
+    app: postgres-{{ .name }}
+    {{- include "ecommerce.labels" $ | nindent 4 }}
+spec:
+  serviceName: postgres-{{ .name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-{{ .name }}
+  template:
+    metadata:
+      labels:
+        app: postgres-{{ .name }}
+    spec:
+      containers:
+        - name: postgres
+          image: {{ $.Values.postgres.image }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .name }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ $.Values.database.user | quote }}, "-d", {{ .name | quote }}]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ $.Values.database.user | quote }}, "-d", {{ .name | quote }}]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ $.Values.postgres.resources.requests.cpu }}
+              memory: {{ $.Values.postgres.resources.requests.memory }}
+            limits:
+              cpu: {{ $.Values.postgres.resources.limits.cpu }}
+              memory: {{ $.Values.postgres.resources.limits.memory }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ $.Values.postgres.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-{{ .name }}
+  namespace: {{ include "ecommerce.namespace" $ }}
+  labels:
+    app: postgres-{{ .name }}
+    {{- include "ecommerce.labels" $ | nindent 4 }}
+spec:
+  selector:
+    app: postgres-{{ .name }}
+  ports:
+    - port: 5432
+  clusterIP: None
+{{- end }}

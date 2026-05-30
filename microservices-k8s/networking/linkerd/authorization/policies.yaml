@@ -1,0 +1,307 @@
+# Linkerd Authorization Policies for E-commerce Microservices
+# Defines which services can communicate with which services
+# Based on connectivity requirements in CONNECTIVITY.md
+
+---
+# ============================================================
+# MESH TLS AUTHENTICATION RESOURCES
+# These define the identity of each service for mTLS auth
+# ============================================================
+
+# API Gateway Identity
+apiVersion: policy.linkerd.io/v1beta2
+kind: MeshTLSAuthentication
+metadata:
+  name: api-gateway-identity
+  namespace: ecommerce
+spec:
+  identities:
+    - "api-gateway.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+
+---
+# Product Service Identity
+apiVersion: policy.linkerd.io/v1beta2
+kind: MeshTLSAuthentication
+metadata:
+  name: product-service-identity
+  namespace: ecommerce
+spec:
+  identities:
+    - "product-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+
+---
+# User Service Identity
+apiVersion: policy.linkerd.io/v1beta2
+kind: MeshTLSAuthentication
+metadata:
+  name: user-service-identity
+  namespace: ecommerce
+spec:
+  identities:
+    - "user-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+
+---
+# Cart Service Identity
+apiVersion: policy.linkerd.io/v1beta2
+kind: MeshTLSAuthentication
+metadata:
+  name: cart-service-identity
+  namespace: ecommerce
+spec:
+  identities:
+    - "cart-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+
+---
+# Order Service Identity
+apiVersion: policy.linkerd.io/v1beta2
+kind: MeshTLSAuthentication
+metadata:
+  name: order-service-identity
+  namespace: ecommerce
+spec:
+  identities:
+    - "order-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+
+---
+# Payment Service Identity
+apiVersion: policy.linkerd.io/v1beta2
+kind: MeshTLSAuthentication
+metadata:
+  name: payment-service-identity
+  namespace: ecommerce
+spec:
+  identities:
+    - "payment-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+
+---
+# Notification Service Identity
+apiVersion: policy.linkerd.io/v1beta2
+kind: MeshTLSAuthentication
+metadata:
+  name: notification-service-identity
+  namespace: ecommerce
+spec:
+  identities:
+    - "notification-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+
+---
+# ============================================================
+# AUTHORIZATION POLICIES
+# These link servers to allowed client identities
+# ============================================================
+
+# ------------------------------------------------------------
+# Product Service Authorization
+# Allowed: api-gateway, order-service, cart-service
+# ------------------------------------------------------------
+apiVersion: policy.linkerd.io/v1beta2
+kind: AuthorizationPolicy
+metadata:
+  name: product-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: product-service-server
+  requiredAuthenticationRefs:
+    - name: api-gateway-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+    - name: order-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+    - name: cart-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+
+---
+# ------------------------------------------------------------
+# User Service Authorization
+# Allowed: api-gateway, cart-service
+# ------------------------------------------------------------
+apiVersion: policy.linkerd.io/v1beta2
+kind: AuthorizationPolicy
+metadata:
+  name: user-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: user-service-server
+  requiredAuthenticationRefs:
+    - name: api-gateway-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+    - name: cart-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+
+---
+# ------------------------------------------------------------
+# Cart Service Authorization
+# Allowed: api-gateway, order-service
+# ------------------------------------------------------------
+apiVersion: policy.linkerd.io/v1beta2
+kind: AuthorizationPolicy
+metadata:
+  name: cart-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: cart-service-server
+  requiredAuthenticationRefs:
+    - name: api-gateway-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+    - name: order-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+
+---
+# ------------------------------------------------------------
+# Order Service Authorization
+# Allowed: api-gateway, payment-service (for callbacks)
+# ------------------------------------------------------------
+apiVersion: policy.linkerd.io/v1beta2
+kind: AuthorizationPolicy
+metadata:
+  name: order-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: order-service-server
+  requiredAuthenticationRefs:
+    - name: api-gateway-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+    - name: payment-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+
+---
+# ------------------------------------------------------------
+# Payment Service Authorization
+# Allowed: api-gateway, order-service
+# ------------------------------------------------------------
+apiVersion: policy.linkerd.io/v1beta2
+kind: AuthorizationPolicy
+metadata:
+  name: payment-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: payment-service-server
+  requiredAuthenticationRefs:
+    - name: api-gateway-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+    - name: order-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+
+---
+# ------------------------------------------------------------
+# Notification Service Authorization
+# Allowed: api-gateway, order-service
+# ------------------------------------------------------------
+apiVersion: policy.linkerd.io/v1beta2
+kind: AuthorizationPolicy
+metadata:
+  name: notification-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: notification-service-server
+  requiredAuthenticationRefs:
+    - name: api-gateway-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+    - name: order-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+
+---
+# ------------------------------------------------------------
+# API Gateway Authorization
+# Allowed: External traffic (no mTLS required for ingress)
+# Using NetworkAuthentication to allow unauthenticated traffic
+# ------------------------------------------------------------
+apiVersion: policy.linkerd.io/v1beta2
+kind: AuthorizationPolicy
+metadata:
+  name: api-gateway-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: api-gateway-server
+  requiredAuthenticationRefs:
+    - name: allow-external
+      kind: NetworkAuthentication
+      group: policy.linkerd.io
+
+---
+# Allow external/unmeshed traffic to API gateway
+apiVersion: policy.linkerd.io/v1beta2
+kind: NetworkAuthentication
+metadata:
+  name: allow-external
+  namespace: ecommerce
+spec:
+  networks:
+    - cidr: 0.0.0.0/0    # Allow all IPv4
+    - cidr: ::/0          # Allow all IPv6
+
+---
+# ------------------------------------------------------------
+# Redis Authorization
+# Allowed: cart-service only
+# ------------------------------------------------------------
+apiVersion: policy.linkerd.io/v1beta2
+kind: AuthorizationPolicy
+metadata:
+  name: redis-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: redis-server
+  requiredAuthenticationRefs:
+    - name: cart-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+
+---
+# ------------------------------------------------------------
+# RabbitMQ Authorization
+# Allowed: order-service, notification-service
+# ------------------------------------------------------------
+apiVersion: policy.linkerd.io/v1beta2
+kind: AuthorizationPolicy
+metadata:
+  name: rabbitmq-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: rabbitmq-server
+  requiredAuthenticationRefs:
+    - name: order-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+    - name: notification-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io

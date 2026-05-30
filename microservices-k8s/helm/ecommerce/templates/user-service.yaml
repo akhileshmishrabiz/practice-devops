@@ -1,0 +1,84 @@
+{{- if .Values.services.userService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: user-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.services.userService.replicas }}
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: {{ .Values.services.userService.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.services.userService.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.services.userService.port | quote }}
+            - name: NODE_ENV
+              value: {{ .Values.services.userService.env }}
+            - name: USER_DB_HOST
+              value: postgres-users
+            - name: USER_DB_PORT
+              value: "5432"
+            - name: USER_DB_USER
+              value: {{ .Values.database.user }}
+            - name: USER_DB_PASSWORD
+              value: {{ .Values.database.password }}
+            - name: USER_DB_NAME
+              value: users
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: JWT_EXPIRY
+              value: {{ .Values.services.userService.jwtExpiry | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.services.userService.logLevel }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.userService.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.userService.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ .Values.services.userService.resources.requests.cpu }}
+              memory: {{ .Values.services.userService.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.services.userService.resources.limits.cpu }}
+              memory: {{ .Values.services.userService.resources.limits.memory }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: user-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: user-service
+  ports:
+    - port: {{ .Values.services.userService.port }}
+      targetPort: {{ .Values.services.userService.port }}
+{{- end }}

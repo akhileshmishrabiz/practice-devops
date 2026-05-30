@@ -1,0 +1,43 @@
+# Vault Helm values for lab environment
+# Uses dev mode for simplicity (auto-unsealed, in-memory by default)
+
+global:
+  enabled: true
+
+server:
+  enabled: true
+
+  # Dev mode - auto-unsealed, no persistent storage needed for labs
+  dev:
+    enabled: true
+    devRootToken: "root"
+
+  # For non-dev mode (production-like)
+  # standalone:
+  #   enabled: true
+  # dataStorage:
+  #   enabled: true
+  #   size: 1Gi
+
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 256Mi
+      cpu: 250m
+
+  # Service configuration
+  service:
+    type: NodePort
+    nodePort: 30200
+
+  # Extra environment variables
+  extraEnvironmentVars:
+    VAULT_LOG_LEVEL: info
+
+ui:
+  enabled: true
+
+injector:
+  enabled: false  # We're using ESO instead of sidecar injection

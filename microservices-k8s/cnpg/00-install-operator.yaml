@@ -1,0 +1,78 @@
+# CloudNativePG Operator Installation
+#
+# This file contains instructions for installing the CNPG operator.
+# The operator manages PostgreSQL clusters defined as Kubernetes CRDs.
+#
+# ============================================================
+# OPTION 1: Install via kubectl (Recommended for learning)
+# ============================================================
+#
+# Apply the latest stable release:
+#
+#   kubectl apply --server-side -f \
+#     https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.22/releases/cnpg-1.22.0.yaml
+#
+# This installs:
+#   - CRDs: Cluster, Backup, ScheduledBackup, Pooler, etc.
+#   - Operator deployment in cnpg-system namespace
+#   - RBAC resources (ServiceAccount, ClusterRole, ClusterRoleBinding)
+#   - Webhook configurations for validation
+#
+# ============================================================
+# OPTION 2: Install via Helm (Recommended for production)
+# ============================================================
+#
+#   # Add the CNPG Helm repository
+#   helm repo add cnpg https://cloudnative-pg.github.io/charts
+#   helm repo update
+#
+#   # Install the operator
+#   helm install cnpg cnpg/cloudnative-pg \
+#     --namespace cnpg-system \
+#     --create-namespace
+#
+# ============================================================
+# Verify Installation
+# ============================================================
+#
+#   # Wait for operator to be ready
+#   kubectl wait --for=condition=available deployment/cnpg-controller-manager \
+#     -n cnpg-system --timeout=120s
+#
+#   # Check operator pods
+#   kubectl get pods -n cnpg-system
+#
+#   # Check CRDs installed
+#   kubectl get crds | grep cnpg
+#
+# Expected CRDs:
+#   - clusters.postgresql.cnpg.io
+#   - backups.postgresql.cnpg.io
+#   - scheduledbackups.postgresql.cnpg.io
+#   - poolers.postgresql.cnpg.io
+#
+# ============================================================
+# Install kubectl cnpg plugin (Optional but recommended)
+# ============================================================
+#
+#   # Using krew (kubectl plugin manager)
+#   kubectl krew install cnpg
+#
+#   # Usage
+#   kubectl cnpg status <cluster-name> -n <namespace>
+#   kubectl cnpg promote <cluster-name> <instance> -n <namespace>
+#
+---
+# Placeholder - operator is installed via URL above
+# This YAML is for documentation purposes
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cnpg-system
+  labels:
+    app.kubernetes.io/name: cloudnative-pg
+    app.kubernetes.io/component: operator
+---
+# Note: The actual operator resources are installed from the official release URL
+# Do NOT apply this file directly - use the kubectl apply command above

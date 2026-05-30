@@ -27,7 +27,10 @@ func Connect(cfg *config.Config) *gorm.DB {
 
 	// Retry connection up to 5 times
 	for i := 0; i < 5; i++ {
-		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+		db, err = gorm.Open(postgres.New(postgres.Config{
+			DSN:                  dsn,
+			PreferSimpleProtocol: true,
+		}), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Info),
 		})
 

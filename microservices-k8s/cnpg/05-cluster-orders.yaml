@@ -1,0 +1,64 @@
+# CloudNativePG Cluster: Orders Database
+#
+# This defines a PostgreSQL cluster for the Order Service.
+# Orders are critical business data, so HA is especially important here.
+# ============================================================
+
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: orders
+  namespace: ecommerce
+  labels:
+    app: orders-db
+    service: order-service
+spec:
+  instances: 2
+
+  imageName: ghcr.io/cloudnative-pg/postgresql:15.4
+
+  superuserSecret:
+    name: orders-superuser
+
+  bootstrap:
+    initdb:
+      database: orders
+      owner: ecommerce_user
+      secret:
+        name: orders-app
+      postInitSQL:
+        - GRANT ALL PRIVILEGES ON DATABASE orders TO ecommerce_user
+        - ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO ecommerce_user
+        - ALTER DEFAULT PRIVILEGES GRANT ALL ON SEQUENCES TO ecommerce_user
+
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+      effective_cache_size: "256MB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      wal_buffers: "4MB"
+      log_statement: "ddl"
+      log_connections: "on"
+      log_disconnections: "on"
+      # Orders might benefit from synchronous replication for durability
+      # synchronous_commit: "on"
+
+  storage:
+    size: 1Gi
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  monitoring:
+    enablePodMonitor: false
+
+  primaryUpdateStrategy: unsupervised
+  failoverDelay: 0
+  switchoverDelay: 10

@@ -1,0 +1,228 @@
+# Linkerd Authorization Policies (Linkerd 2.14: one MeshTLSAuthentication ref per AuthorizationPolicy)
+# Combined client identity sets per protected server.
+
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: product-service-clients
+  namespace: ecommerce
+spec:
+  identities:
+    - "api-gateway.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+    - "order-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+    - "cart-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: product-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: product-service-server
+  requiredAuthenticationRefs:
+    - name: product-service-clients
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: user-service-clients
+  namespace: ecommerce
+spec:
+  identities:
+    - "api-gateway.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+    - "cart-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: user-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: user-service-server
+  requiredAuthenticationRefs:
+    - name: user-service-clients
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: cart-service-clients
+  namespace: ecommerce
+spec:
+  identities:
+    - "api-gateway.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+    - "order-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: cart-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: cart-service-server
+  requiredAuthenticationRefs:
+    - name: cart-service-clients
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: order-service-clients
+  namespace: ecommerce
+spec:
+  identities:
+    - "api-gateway.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+    - "payment-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: order-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: order-service-server
+  requiredAuthenticationRefs:
+    - name: order-service-clients
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: payment-service-clients
+  namespace: ecommerce
+spec:
+  identities:
+    - "api-gateway.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+    - "order-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: payment-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: payment-service-server
+  requiredAuthenticationRefs:
+    - name: payment-service-clients
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: notification-service-clients
+  namespace: ecommerce
+spec:
+  identities:
+    - "api-gateway.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+    - "order-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: notification-service-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: notification-service-server
+  requiredAuthenticationRefs:
+    - name: notification-service-clients
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: NetworkAuthentication
+metadata:
+  name: allow-external
+  namespace: ecommerce
+spec:
+  networks:
+    - cidr: 0.0.0.0/0
+    - cidr: ::/0
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: api-gateway-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: api-gateway-server
+  requiredAuthenticationRefs:
+    - name: allow-external
+      kind: NetworkAuthentication
+      group: policy.linkerd.io
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: cart-service-identity
+  namespace: ecommerce
+spec:
+  identities:
+    - "cart-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: redis-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: redis-server
+  requiredAuthenticationRefs:
+    - name: cart-service-identity
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: rabbitmq-clients
+  namespace: ecommerce
+spec:
+  identities:
+    - "order-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+    - "notification-service.ecommerce.serviceaccount.identity.linkerd.cluster.local"
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: rabbitmq-authz
+  namespace: ecommerce
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: rabbitmq-server
+  requiredAuthenticationRefs:
+    - name: rabbitmq-clients
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io

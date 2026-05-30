@@ -1,0 +1,242 @@
+# Linkerd Service Profiles for E-commerce Microservices
+# Service profiles enable per-route metrics, retries, and timeouts
+
+---
+# Product Service
+apiVersion: linkerd.io/v1alpha2
+kind: ServiceProfile
+metadata:
+  name: product-service.ecommerce.svc.cluster.local
+  namespace: ecommerce
+spec:
+  routes:
+    - name: "GET /api/products"
+      condition:
+        method: GET
+        pathRegex: /api/products$
+      timeout: 5s
+      isRetryable: true
+    - name: "GET /api/products/{id}"
+      condition:
+        method: GET
+        pathRegex: /api/products/[^/]+$
+      timeout: 3s
+      isRetryable: true
+    - name: "POST /api/products"
+      condition:
+        method: POST
+        pathRegex: /api/products$
+      timeout: 5s
+      isRetryable: false    # Not idempotent
+    - name: "PUT /api/products/{id}"
+      condition:
+        method: PUT
+        pathRegex: /api/products/[^/]+$
+      timeout: 5s
+      isRetryable: false
+    - name: "DELETE /api/products/{id}"
+      condition:
+        method: DELETE
+        pathRegex: /api/products/[^/]+$
+      timeout: 5s
+      isRetryable: false
+    - name: "GET /health"
+      condition:
+        method: GET
+        pathRegex: /health$
+      timeout: 2s
+      isRetryable: true
+
+---
+# User Service
+apiVersion: linkerd.io/v1alpha2
+kind: ServiceProfile
+metadata:
+  name: user-service.ecommerce.svc.cluster.local
+  namespace: ecommerce
+spec:
+  routes:
+    - name: "POST /api/auth/register"
+      condition:
+        method: POST
+        pathRegex: /api/auth/register$
+      timeout: 10s
+      isRetryable: false
+    - name: "POST /api/auth/login"
+      condition:
+        method: POST
+        pathRegex: /api/auth/login$
+      timeout: 5s
+      isRetryable: false
+    - name: "GET /api/users/profile"
+      condition:
+        method: GET
+        pathRegex: /api/users/profile$
+      timeout: 3s
+      isRetryable: true
+    - name: "PUT /api/users/profile"
+      condition:
+        method: PUT
+        pathRegex: /api/users/profile$
+      timeout: 5s
+      isRetryable: false
+    - name: "GET /health"
+      condition:
+        method: GET
+        pathRegex: /health$
+      timeout: 2s
+      isRetryable: true
+
+---
+# Cart Service
+apiVersion: linkerd.io/v1alpha2
+kind: ServiceProfile
+metadata:
+  name: cart-service.ecommerce.svc.cluster.local
+  namespace: ecommerce
+spec:
+  routes:
+    - name: "GET /api/cart"
+      condition:
+        method: GET
+        pathRegex: /api/cart$
+      timeout: 3s
+      isRetryable: true
+    - name: "POST /api/cart/items"
+      condition:
+        method: POST
+        pathRegex: /api/cart/items$
+      timeout: 5s
+      isRetryable: false
+    - name: "PUT /api/cart/items/{id}"
+      condition:
+        method: PUT
+        pathRegex: /api/cart/items/[^/]+$
+      timeout: 5s
+      isRetryable: false
+    - name: "DELETE /api/cart/items/{id}"
+      condition:
+        method: DELETE
+        pathRegex: /api/cart/items/[^/]+$
+      timeout: 5s
+      isRetryable: true     # Safe to retry deletes
+    - name: "DELETE /api/cart"
+      condition:
+        method: DELETE
+        pathRegex: /api/cart$
+      timeout: 5s
+      isRetryable: true
+    - name: "GET /health"
+      condition:
+        method: GET
+        pathRegex: /health$
+      timeout: 2s
+      isRetryable: true
+
+---
+# Order Service
+apiVersion: linkerd.io/v1alpha2
+kind: ServiceProfile
+metadata:
+  name: order-service.ecommerce.svc.cluster.local
+  namespace: ecommerce
+spec:
+  routes:
+    - name: "POST /api/orders"
+      condition:
+        method: POST
+        pathRegex: /api/orders$
+      timeout: 30s          # Orders can take time (stock check, cart clear, etc.)
+      isRetryable: false    # NEVER retry order creation!
+    - name: "GET /api/orders"
+      condition:
+        method: GET
+        pathRegex: /api/orders$
+      timeout: 5s
+      isRetryable: true
+    - name: "GET /api/orders/{id}"
+      condition:
+        method: GET
+        pathRegex: /api/orders/[^/]+$
+      timeout: 3s
+      isRetryable: true
+    - name: "PUT /api/orders/{id}/status"
+      condition:
+        method: PUT
+        pathRegex: /api/orders/[^/]+/status$
+      timeout: 5s
+      isRetryable: false
+    - name: "GET /health"
+      condition:
+        method: GET
+        pathRegex: /health$
+      timeout: 2s
+      isRetryable: true
+
+---
+# Payment Service
+apiVersion: linkerd.io/v1alpha2
+kind: ServiceProfile
+metadata:
+  name: payment-service.ecommerce.svc.cluster.local
+  namespace: ecommerce
+spec:
+  routes:
+    - name: "POST /api/payments/create"
+      condition:
+        method: POST
+        pathRegex: /api/payments/create$
+      timeout: 30s          # External API call to Razorpay
+      isRetryable: false    # NEVER retry payment creation!
+    - name: "POST /api/payments/verify"
+      condition:
+        method: POST
+        pathRegex: /api/payments/verify$
+      timeout: 15s
+      isRetryable: false
+    - name: "GET /api/payments/{id}"
+      condition:
+        method: GET
+        pathRegex: /api/payments/[^/]+$
+      timeout: 5s
+      isRetryable: true
+    - name: "POST /api/payments/webhook"
+      condition:
+        method: POST
+        pathRegex: /api/payments/webhook$
+      timeout: 10s
+      isRetryable: false    # Webhooks should not be retried
+    - name: "GET /health"
+      condition:
+        method: GET
+        pathRegex: /health$
+      timeout: 2s
+      isRetryable: true
+
+---
+# Notification Service
+apiVersion: linkerd.io/v1alpha2
+kind: ServiceProfile
+metadata:
+  name: notification-service.ecommerce.svc.cluster.local
+  namespace: ecommerce
+spec:
+  routes:
+    - name: "POST /api/notifications/send"
+      condition:
+        method: POST
+        pathRegex: /api/notifications/send$
+      timeout: 30s          # External API call to AWS SES
+      isRetryable: true     # Notifications can be safely retried
+    - name: "GET /api/notifications"
+      condition:
+        method: GET
+        pathRegex: /api/notifications$
+      timeout: 5s
+      isRetryable: true
+    - name: "GET /health"
+      condition:
+        method: GET
+        pathRegex: /health$
+      timeout: 2s
+      isRetryable: true

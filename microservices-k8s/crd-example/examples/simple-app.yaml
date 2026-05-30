@@ -1,0 +1,13 @@
+# Example 1: Basic SimpleApp
+# Creates a nginx deployment with custom message
+
+apiVersion: apps.example.com/v1
+kind: SimpleApp
+metadata:
+  name: my-nginx
+  namespace: default
+spec:
+  image: nginx:alpine
+  replicas: 2
+  port: 80
+  message: "Welcome to my first custom resource!"

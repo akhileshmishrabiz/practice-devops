@@ -1,0 +1,30 @@
+# Kind cluster for networking + service mesh testing
+# Uses Cilium CNI (NetworkPolicy support). Default kindnet does NOT enforce policies.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ecommerce-networking
+networking:
+  disableDefaultCNI: true
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.96.0.0/12"
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 9080
+        protocol: TCP
+      - containerPort: 30000
+        hostPort: 4000
+        protocol: TCP
+      - containerPort: 31672
+        hostPort: 16672
+        protocol: TCP
+      - containerPort: 30200
+        hostPort: 8200
+        protocol: TCP
+      - containerPort: 30090
+        hostPort: 9090
+        protocol: TCP
+      - containerPort: 30030
+        hostPort: 3030
+        protocol: TCP

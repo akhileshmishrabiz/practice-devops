@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-data-job
+  namespace: ecommerce
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      containers:
+      - name: seed-data
+        image: ms-ecom-seed:latest
+        imagePullPolicy: Never
+        env:
+        - name: API_URL
+          value: "http://api-gateway.ecommerce.svc.cluster.local"
+      restartPolicy: Never

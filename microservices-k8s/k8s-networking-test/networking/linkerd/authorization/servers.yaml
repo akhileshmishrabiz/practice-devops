@@ -1,0 +1,146 @@
+# Linkerd Server Definitions
+# Defines what ports/protocols to protect for each service
+
+---
+# API Gateway
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: api-gateway-server
+  namespace: ecommerce
+  labels:
+    app: api-gateway
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  port: 80
+  proxyProtocol: HTTP/1
+
+---
+# Product Service
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: product-service-server
+  namespace: ecommerce
+  labels:
+    app: product-service
+spec:
+  podSelector:
+    matchLabels:
+      app: product-service
+  port: 8001
+  proxyProtocol: HTTP/1
+
+---
+# User Service
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: user-service-server
+  namespace: ecommerce
+  labels:
+    app: user-service
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service
+  port: 8002
+  proxyProtocol: HTTP/1
+
+---
+# Cart Service
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: cart-service-server
+  namespace: ecommerce
+  labels:
+    app: cart-service
+spec:
+  podSelector:
+    matchLabels:
+      app: cart-service
+  port: 8003
+  proxyProtocol: HTTP/1
+
+---
+# Order Service
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: order-service-server
+  namespace: ecommerce
+  labels:
+    app: order-service
+spec:
+  podSelector:
+    matchLabels:
+      app: order-service
+  port: 8004
+  proxyProtocol: HTTP/1
+
+---
+# Payment Service
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: payment-service-server
+  namespace: ecommerce
+  labels:
+    app: payment-service
+spec:
+  podSelector:
+    matchLabels:
+      app: payment-service
+  port: 8005
+  proxyProtocol: HTTP/1
+
+---
+# Notification Service
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: notification-service-server
+  namespace: ecommerce
+  labels:
+    app: notification-service
+spec:
+  podSelector:
+    matchLabels:
+      app: notification-service
+  port: 8006
+  proxyProtocol: HTTP/1
+
+---
+# Redis
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: redis-server
+  namespace: ecommerce
+  labels:
+    app: redis
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  port: 6379
+  proxyProtocol: opaque    # Non-HTTP protocol
+
+---
+# RabbitMQ
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: rabbitmq-server
+  namespace: ecommerce
+  labels:
+    app: rabbitmq
+spec:
+  podSelector:
+    matchLabels:
+      app: rabbitmq
+  port: 5672
+  proxyProtocol: opaque    # AMQP protocol

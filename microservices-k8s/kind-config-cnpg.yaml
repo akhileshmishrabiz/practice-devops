@@ -1,0 +1,18 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ecommerce-cnpg
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # API Gateway - access the app at localhost:9080
+      - containerPort: 30080
+        hostPort: 9080
+        protocol: TCP
+      # Frontend - access at localhost:4000
+      - containerPort: 30000
+        hostPort: 4000
+        protocol: TCP
+      # RabbitMQ Management UI - localhost:16672
+      - containerPort: 31672
+        hostPort: 16672
+        protocol: TCP

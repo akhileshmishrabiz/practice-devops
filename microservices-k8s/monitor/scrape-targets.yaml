@@ -1,0 +1,153 @@
+# =============================================================================
+# SCRAPE TARGETS FOR MICROSERVICES
+# =============================================================================
+# This manifest configures Prometheus scrape targets for the e-commerce
+# microservices. Apply this to enable metrics collection from:
+#
+#   Service                  | Library                   | Metrics Endpoint
+#   -------------------------+---------------------------+------------------
+#   Product Service (Go)     | prometheus/client_golang  | :8001/metrics
+#   User Service (Node.js)   | prom-client               | :8002/metrics
+#   Payment Service (Python) | prometheus-flask-exporter | :8005/metrics
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# OPTION 1: Using Kubernetes Service annotations (recommended)
+# Add these annotations to your existing service manifests
+# -----------------------------------------------------------------------------
+
+# Product Service - Go (:8001/metrics)
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: default
+  labels:
+    app: product-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8001"
+    prometheus.io/path: "/metrics"
+spec:
+  ports:
+    - port: 8001
+      targetPort: 8001
+      name: http
+  selector:
+    app: product-service
+
+---
+# User Service - Node.js (:8002/metrics)
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: default
+  labels:
+    app: user-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8002"
+    prometheus.io/path: "/metrics"
+spec:
+  ports:
+    - port: 8002
+      targetPort: 8002
+      name: http
+  selector:
+    app: user-service
+
+---
+# Payment Service - Python (:8005/metrics)
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: default
+  labels:
+    app: payment-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8005"
+    prometheus.io/path: "/metrics"
+spec:
+  ports:
+    - port: 8005
+      targetPort: 8005
+      name: http
+  selector:
+    app: payment-service
+
+---
+# -----------------------------------------------------------------------------
+# OPTION 2: Static scrape configuration (alternative)
+# Use this ConfigMap to add static targets to Prometheus
+# Patch the prometheus-config ConfigMap with these additional scrape_configs
+# -----------------------------------------------------------------------------
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-scrape-targets
+  namespace: monitoring
+  labels:
+    app: prometheus
+data:
+  additional-scrape-configs.yaml: |
+    # Product Service (Go) - prometheus/client_golang
+    - job_name: 'product-service'
+      static_configs:
+        - targets: ['product-service.default.svc.cluster.local:8001']
+          labels:
+            service: 'product-service'
+            language: 'go'
+            library: 'prometheus/client_golang'
+      metrics_path: /metrics
+      scrape_interval: 15s
+
+    # User Service (Node.js) - prom-client
+    - job_name: 'user-service'
+      static_configs:
+        - targets: ['user-service.default.svc.cluster.local:8002']
+          labels:
+            service: 'user-service'
+            language: 'nodejs'
+            library: 'prom-client'
+      metrics_path: /metrics
+      scrape_interval: 15s
+
+    # Payment Service (Python) - prometheus-flask-exporter
+    - job_name: 'payment-service'
+      static_configs:
+        - targets: ['payment-service.default.svc.cluster.local:8005']
+          labels:
+            service: 'payment-service'
+            language: 'python'
+            library: 'prometheus-flask-exporter'
+      metrics_path: /metrics
+      scrape_interval: 15s
+
+---
+# -----------------------------------------------------------------------------
+# POD ANNOTATIONS (for reference)
+# Add these annotations to your Pod templates if using pod-based discovery
+# -----------------------------------------------------------------------------
+# For Product Service Pod:
+#   annotations:
+#     prometheus.io/scrape: "true"
+#     prometheus.io/port: "8001"
+#     prometheus.io/path: "/metrics"
+#
+# For User Service Pod:
+#   annotations:
+#     prometheus.io/scrape: "true"
+#     prometheus.io/port: "8002"
+#     prometheus.io/path: "/metrics"
+#
+# For Payment Service Pod:
+#   annotations:
+#     prometheus.io/scrape: "true"
+#     prometheus.io/port: "8005"
+#     prometheus.io/path: "/metrics"
+# -----------------------------------------------------------------------------

@@ -1,0 +1,57 @@
+# Production Application with Environment-Specific Values
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecommerce-production
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    environment: production
+    team: platform
+spec:
+  project: production  # Use dedicated project with RBAC
+
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/microservices-k8s.git
+    targetRevision: v1.2.0  # Pin to specific tag in production
+    path: helm/ecommerce
+
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-production.yaml  # Environment overlay
+      parameters:
+        - name: global.environment
+          value: production
+        - name: replicaCount
+          value: "3"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-production
+
+  syncPolicy:
+    # Manual sync for production - no automated
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - ApplyOutOfSyncOnly=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+
+  # Ignore differences that are expected (managed externally)
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # HPA manages this
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data  # External secrets manager

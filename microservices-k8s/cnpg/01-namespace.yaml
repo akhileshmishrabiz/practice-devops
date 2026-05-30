@@ -1,0 +1,15 @@
+# Namespace for CNPG PostgreSQL Clusters
+#
+# We use the same "ecommerce" namespace as the rest of the application.
+# This keeps all components together for easier management.
+#
+# If the namespace already exists (from Helm deployment), this will be a no-op.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecommerce
+  labels:
+    app: ecommerce
+    environment: development
+    managed-by: cnpg

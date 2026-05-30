@@ -1,0 +1,13 @@
+# Example 2: Hello World SimpleApp
+# Minimal example with defaults
+
+apiVersion: apps.example.com/v1
+kind: SimpleApp
+metadata:
+  name: hello-world
+  namespace: default
+spec:
+  image: nginx:alpine
+  message: "Hello, Kubernetes Operators!"
+  # replicas defaults to 1
+  # port defaults to 80

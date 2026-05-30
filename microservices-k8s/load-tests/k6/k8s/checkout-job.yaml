@@ -1,0 +1,74 @@
+# Stage 4: Mixed checkout journey as a Kubernetes Job
+# Same shape as Stage 3 (auth): ConfigMap holds two files — the scenario
+# and the auth.lib.js it imports — both mounted at /scripts/ so the
+# relative import './auth.lib.js' resolves at runtime.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-checkout-script
+  namespace: ecommerce
+  labels:
+    app: k6
+    stage: checkout
+data:
+  checkout.js: |
+    // Placeholder — populated at run time by load-test.sh
+    // from load-tests/k6/scenarios/checkout.js
+  auth.lib.js: |
+    // Placeholder — populated at run time by load-test.sh
+    // from load-tests/k6/lib/auth.js
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-checkout
+  namespace: ecommerce
+  labels:
+    app: k6
+    stage: checkout
+spec:
+  # Keep the pod around for 10min after completion so you can inspect
+  # logs/metrics. The Job auto-deletes after that.
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: k6
+        stage: checkout
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: grafana/k6:0.49.0
+          args: ["run", "--out", "experimental-prometheus-rw", "/scripts/checkout.js"]
+          env:
+            - name: BASE_URL
+              value: "http://api-gateway.ecommerce.svc.cluster.local"
+            - name: K6_PROMETHEUS_RW_SERVER_URL
+              value: "http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+            - name: K6_PROMETHEUS_RW_TREND_STATS
+              value: "p(95),p(99),min,max,avg,count"
+            - name: K6_PROMETHEUS_RW_PUSH_INTERVAL
+              value: "5s"
+            - name: K6_PROMETHEUS_RW_STALE_MARKERS
+              value: "true"
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+          resources:
+            # Bumped slightly vs earlier stages: checkout has more
+            # in-flight requests and JSON parsing per iteration, and
+            # we run for 2min instead of 1, so a bit more headroom.
+            requests:
+              cpu: "300m"
+              memory: "384Mi"
+            limits:
+              cpu: "1500m"
+              memory: "768Mi"
+      volumes:
+        - name: script
+          configMap:
+            name: k6-checkout-script

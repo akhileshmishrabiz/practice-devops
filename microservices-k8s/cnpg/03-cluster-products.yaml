@@ -1,0 +1,103 @@
+# CloudNativePG Cluster: Products Database
+#
+# This defines a PostgreSQL cluster for the Product Service.
+# Configuration:
+#   - 2 instances (1 primary + 1 replica) for high availability
+#   - PostgreSQL 15
+#   - 1Gi storage per instance
+#   - Streaming replication for data redundancy
+#
+# Services created automatically:
+#   - products-rw  (read-write, points to primary)
+#   - products-ro  (read-only, points to replicas)
+#   - products-r   (read, any instance)
+# ============================================================
+
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: products
+  namespace: ecommerce
+  labels:
+    app: products-db
+    service: product-service
+spec:
+  # Number of instances: 1 primary + (n-1) replicas
+  instances: 2
+
+  # PostgreSQL version
+  imageName: ghcr.io/cloudnative-pg/postgresql:15.4
+
+  # Use pre-defined secrets for credentials
+  superuserSecret:
+    name: products-superuser
+
+  # Bootstrap configuration - initialize database and users
+  bootstrap:
+    initdb:
+      database: products
+      owner: ecommerce_user
+      secret:
+        name: products-app
+      # Post-init SQL to set up permissions
+      postInitSQL:
+        - GRANT ALL PRIVILEGES ON DATABASE products TO ecommerce_user
+        - ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO ecommerce_user
+        - ALTER DEFAULT PRIVILEGES GRANT ALL ON SEQUENCES TO ecommerce_user
+
+  # PostgreSQL configuration parameters
+  postgresql:
+    parameters:
+      # Connection settings
+      max_connections: "100"
+      # Memory settings (for small instances)
+      shared_buffers: "128MB"
+      effective_cache_size: "256MB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      # Write ahead log
+      wal_buffers: "4MB"
+      # Logging
+      log_statement: "ddl"
+      log_connections: "on"
+      log_disconnections: "on"
+
+  # Storage configuration
+  storage:
+    size: 1Gi
+    # Uncomment to specify storage class
+    # storageClass: standard
+
+  # Resource limits (matching current StatefulSet config)
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  # Affinity rules for pod placement (optional)
+  # affinity:
+  #   podAntiAffinity:
+  #     requiredDuringSchedulingIgnoredDuringExecution:
+  #       - labelSelector:
+  #           matchLabels:
+  #             cnpg.io/cluster: products
+  #         topologyKey: kubernetes.io/hostname
+
+  # Monitoring configuration
+  monitoring:
+    enablePodMonitor: false  # Set to true if you have Prometheus Operator
+
+  # Primary update strategy
+  primaryUpdateStrategy: unsupervised
+
+  # Automatic failover settings
+  failoverDelay: 0
+  switchoverDelay: 10
+
+  # Node maintenance window (optional)
+  # nodeMaintenanceWindow:
+  #   inProgress: false
+  #   reusePVC: true

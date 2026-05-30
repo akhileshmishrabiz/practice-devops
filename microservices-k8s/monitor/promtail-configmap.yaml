@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: promtail-config
+  namespace: monitoring
+  labels:
+    app: promtail
+data:
+  promtail.yaml: |
+    server:
+      http_listen_port: 9080
+      grpc_listen_port: 0
+      log_level: info
+
+    positions:
+      filename: /run/promtail/positions.yaml
+
+    clients:
+      - url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+        batchwait: 1s
+        batchsize: 1048576
+        backoff_config:
+          min_period: 500ms
+          max_period: 5m
+          max_retries: 10
+
+    scrape_configs:
+      # ---------------------------------------------------------------------
+      # All pods on this node — discover via Kubernetes API, ship from
+      # /var/log/pods/<ns>_<pod>_<uid>/<container>/*.log
+      # ---------------------------------------------------------------------
+      - job_name: kubernetes-pods
+        kubernetes_sd_configs:
+          - role: pod
+        pipeline_stages:
+          # Strip the CRI wrapper: "2026-05-16T... stdout F <line>"
+          - cri: {}
+
+          # Try to parse the line as JSON — non-JSON lines pass through
+          # unchanged (they just keep their default labels and timestamp).
+          - json:
+              expressions:
+                level: level
+                log_time: time
+                svc: service
+
+          # Promote the JSON-extracted level to an indexed label so you can
+          # query like {namespace="default", level="error"}. Kept low cardinality.
+          - labels:
+              level:
+
+          # Use the application's own timestamp (the `time` field your apps
+          # emit) instead of the ingestion time, when present.
+          - timestamp:
+              source: log_time
+              format: RFC3339
+              fallback_formats:
+                - RFC3339Nano
+                - "2006-01-02 15:04:05"
+                - "2006-01-02T15:04:05Z"
+              action_on_failure: skip
+
+        relabel_configs:
+          # Only ship logs from pods on THIS node (DaemonSet pattern).
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: __host__
+
+          # Opt-out: a pod annotated promtail.io/scrape=false will be skipped.
+          - source_labels: [__meta_kubernetes_pod_annotation_promtail_io_scrape]
+            action: drop
+            regex: "false"
+
+          # Standard Kubernetes labels — these are indexed by Loki.
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: node
+
+          # Promote pod label `app` → label `app`. Most of your services
+          # use this (cart-service, order-service, etc.).
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
+
+          # Build the file path Promtail should tail. The kubelet writes
+          # container stdout to /var/log/pods/<ns>_<pod>_<uid>/<container>/*.log
+          - action: replace
+            replacement: /var/log/pods/*$1/*.log
+            separator: /
+            source_labels:
+              - __meta_kubernetes_pod_uid
+              - __meta_kubernetes_pod_container_name
+            target_label: __path__

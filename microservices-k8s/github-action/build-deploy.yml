@@ -1,0 +1,146 @@
+name: E-commerce Build & Deploy
+
+on:
+  # push:
+  #   branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REGISTRY: 879381241087.dkr.ecr.ap-south-1.amazonaws.com
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - name: product-service
+            ecr_repo: ecommerce-product-service
+            path: apps/services/product-service/
+            values_key: services.productService.image
+          - name: user-service
+            ecr_repo: ecommerce-user-service
+            path: apps/services/user-service/
+            values_key: services.userService.image
+          - name: cart-service
+            ecr_repo: ecommerce-cart-service
+            path: apps/services/cart-service/
+            values_key: services.cartService.image
+          - name: order-service
+            ecr_repo: ecommerce-order-service
+            path: apps/services/order-service/
+            values_key: services.orderService.image
+          - name: payment-service
+            ecr_repo: ecommerce-payment-service
+            path: apps/services/payment-service/
+            values_key: services.paymentService.image
+          - name: notification-service
+            ecr_repo: ecommerce-notification-service
+            path: apps/services/notification-service/
+            values_key: services.notificationService.image
+          - name: api-gateway
+            ecr_repo: ecommerce-api-gateway
+            path: apps/api-gateway/
+            values_key: apiGateway.image
+          - name: frontend
+            ecr_repo: ecommerce-frontend
+            path: apps/frontend/
+            values_key: frontend.image
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          #### if using aws access keys and secrets
+          # aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # aws-region: ${{ env.AWS_REGION }}
+
+          #### if using aws role to assume - OIDC
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: GitHub_to_AWS_${{ matrix.service.name }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build ${{ matrix.service.name }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.path }}
+          push: false
+          load: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ matrix.service.ecr_repo }}:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/${{ matrix.service.ecr_repo }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Push ${{ matrix.service.name }}
+        run: |
+          docker push ${{ env.ECR_REGISTRY }}/${{ matrix.service.ecr_repo }}:${{ github.sha }}
+          docker push ${{ env.ECR_REGISTRY }}/${{ matrix.service.ecr_repo }}:latest
+
+    outputs:
+      image_tag: ${{ github.sha }}
+
+  update-helm-values:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup yq
+        uses: mikefarah/yq@master
+
+      - name: Update Helm values with new image tags
+        run: |
+          IMAGE_TAG="${{ github.sha }}"
+          VALUES_FILE="helm/ecommerce/values.yaml"
+
+          # Update service images
+          yq -i '.services.productService.image = "${{ env.ECR_REGISTRY }}/ecommerce-product-service:'${IMAGE_TAG}'"' $VALUES_FILE
+          yq -i '.services.userService.image = "${{ env.ECR_REGISTRY }}/ecommerce-user-service:'${IMAGE_TAG}'"' $VALUES_FILE
+          yq -i '.services.cartService.image = "${{ env.ECR_REGISTRY }}/ecommerce-cart-service:'${IMAGE_TAG}'"' $VALUES_FILE
+          yq -i '.services.orderService.image = "${{ env.ECR_REGISTRY }}/ecommerce-order-service:'${IMAGE_TAG}'"' $VALUES_FILE
+          yq -i '.services.paymentService.image = "${{ env.ECR_REGISTRY }}/ecommerce-payment-service:'${IMAGE_TAG}'"' $VALUES_FILE
+          yq -i '.services.notificationService.image = "${{ env.ECR_REGISTRY }}/ecommerce-notification-service:'${IMAGE_TAG}'"' $VALUES_FILE
+
+          # Update gateway and frontend images
+          yq -i '.apiGateway.image = "${{ env.ECR_REGISTRY }}/ecommerce-api-gateway:'${IMAGE_TAG}'"' $VALUES_FILE
+          yq -i '.frontend.image = "${{ env.ECR_REGISTRY }}/ecommerce-frontend:'${IMAGE_TAG}'"' $VALUES_FILE
+
+          # Update imagePullPolicy for production
+          yq -i '.global.imagePullPolicy = "IfNotPresent"' $VALUES_FILE
+
+          echo "Updated values.yaml:"
+          cat $VALUES_FILE
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add helm/ecommerce/values.yaml
+          git commit -m "chore: update image tags to ${{ github.sha }}" || echo "No changes to commit"
+          git push
+
+ 

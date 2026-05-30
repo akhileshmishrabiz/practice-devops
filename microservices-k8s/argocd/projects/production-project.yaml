@@ -1,0 +1,80 @@
+# ArgoCD Project - Production RBAC and Restrictions
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Production environment project with strict controls
+
+  # Only allow specific source repos
+  sourceRepos:
+    - https://github.com/YOUR_USERNAME/microservices-k8s.git
+    - https://charts.bitnami.com/bitnami
+
+  # Restrict deployment targets
+  destinations:
+    - namespace: ecommerce-production
+      server: https://kubernetes.default.svc
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+
+  # Allow all namespaced resources, restrict cluster-wide
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+
+  # Block dangerous resources
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota
+    - group: ''
+      kind: LimitRange
+
+  # Restrict which values files can be used
+  sourceNamespaces:
+    - argocd
+
+  # Require specific sync windows (maintenance windows)
+  # Only allow syncs during specific hours
+  # Defined in syncWindows below
+
+  roles:
+    - name: production-deployer
+      description: Can sync/deploy to production
+      policies:
+        - p, proj:production:production-deployer, applications, sync, production/*, allow
+        - p, proj:production:production-deployer, applications, get, production/*, allow
+      groups:
+        - platform-team
+
+    - name: production-viewer
+      description: Read-only access
+      policies:
+        - p, proj:production:production-viewer, applications, get, production/*, allow
+      groups:
+        - developers
+
+---
+# Sync Window - Only allow production deployments during business hours
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+  namespace: argocd
+spec:
+  syncWindows:
+    # Allow syncs Monday-Friday 9am-5pm UTC
+    - kind: allow
+      schedule: '0 9 * * 1-5'
+      duration: 8h
+      applications:
+        - '*'
+    # Deny syncs during weekends
+    - kind: deny
+      schedule: '0 0 * * 0,6'
+      duration: 24h
+      applications:
+        - '*'

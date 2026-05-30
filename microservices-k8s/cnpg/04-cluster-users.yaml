@@ -1,0 +1,64 @@
+# CloudNativePG Cluster: Users Database
+#
+# This defines a PostgreSQL cluster for the User Service.
+# Configuration mirrors the products cluster for consistency.
+# ============================================================
+
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: users
+  namespace: ecommerce
+  labels:
+    app: users-db
+    service: user-service
+spec:
+  instances: 2
+
+  imageName: ghcr.io/cloudnative-pg/postgresql:15.4
+
+  superuserSecret:
+    name: users-superuser
+
+  bootstrap:
+    initdb:
+      database: users
+      owner: ecommerce_user
+      secret:
+        name: users-app
+      postInitSQL:
+        - GRANT ALL PRIVILEGES ON DATABASE users TO ecommerce_user
+        - ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO ecommerce_user
+        - ALTER DEFAULT PRIVILEGES GRANT ALL ON SEQUENCES TO ecommerce_user
+        # User service may need UUID extension
+        - CREATE EXTENSION IF NOT EXISTS "uuid-ossp"
+
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+      effective_cache_size: "256MB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      wal_buffers: "4MB"
+      log_statement: "ddl"
+      log_connections: "on"
+      log_disconnections: "on"
+
+  storage:
+    size: 1Gi
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  monitoring:
+    enablePodMonitor: false
+
+  primaryUpdateStrategy: unsupervised
+  failoverDelay: 0
+  switchoverDelay: 10

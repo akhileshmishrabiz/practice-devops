@@ -1,0 +1,82 @@
+{{- if .Values.services.cartService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: cart-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.services.cartService.replicas }}
+  selector:
+    matchLabels:
+      app: cart-service
+  template:
+    metadata:
+      labels:
+        app: cart-service
+    spec:
+      containers:
+        - name: cart-service
+          image: {{ .Values.services.cartService.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.services.cartService.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.services.cartService.port | quote }}
+            - name: NODE_ENV
+              value: {{ .Values.services.cartService.env }}
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              value: {{ .Values.redis.password }}
+            - name: REDIS_DB
+              value: "0"
+            - name: PRODUCT_SERVICE_URL
+              value: http://product-service:{{ .Values.services.productService.port }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: LOG_LEVEL
+              value: {{ .Values.services.cartService.logLevel }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.cartService.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.cartService.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ .Values.services.cartService.resources.requests.cpu }}
+              memory: {{ .Values.services.cartService.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.services.cartService.resources.limits.cpu }}
+              memory: {{ .Values.services.cartService.resources.limits.memory }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: cart-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: cart-service
+  ports:
+    - port: {{ .Values.services.cartService.port }}
+      targetPort: {{ .Values.services.cartService.port }}
+{{- end }}

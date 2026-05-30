@@ -1,0 +1,95 @@
+{{- if .Values.services.notificationService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: notification-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.services.notificationService.replicas }}
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: {{ .Values.services.notificationService.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.services.notificationService.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.services.notificationService.port | quote }}
+            - name: FLASK_ENV
+              value: {{ .Values.services.notificationService.env }}
+            - name: RABBITMQ_HOST
+              value: rabbitmq
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-credentials
+                  key: RABBITMQ_DEFAULT_USER
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-credentials
+                  key: RABBITMQ_DEFAULT_PASS
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_REGION
+              value: {{ .Values.services.notificationService.aws.region }}
+            - name: SES_SENDER_EMAIL
+              value: {{ .Values.services.notificationService.aws.sesSenderEmail }}
+            - name: LOG_LEVEL
+              value: {{ .Values.services.notificationService.logLevel }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.notificationService.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.notificationService.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ .Values.services.notificationService.resources.requests.cpu }}
+              memory: {{ .Values.services.notificationService.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.services.notificationService.resources.limits.cpu }}
+              memory: {{ .Values.services.notificationService.resources.limits.memory }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: notification-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - port: {{ .Values.services.notificationService.port }}
+      targetPort: {{ .Values.services.notificationService.port }}
+{{- end }}

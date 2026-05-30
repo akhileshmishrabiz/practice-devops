@@ -1,0 +1,105 @@
+{{- if .Values.services.paymentService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: payment-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.services.paymentService.replicas }}
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: {{ .Values.services.paymentService.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.services.paymentService.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.services.paymentService.port | quote }}
+            - name: FLASK_ENV
+              value: {{ .Values.services.paymentService.env }}
+            - name: PAYMENT_DB_HOST
+              value: payments-rw
+            - name: PAYMENT_DB_PORT
+              value: "5432"
+            - name: PAYMENT_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_USER
+            - name: PAYMENT_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_PASSWORD
+            - name: PAYMENT_DB_NAME
+              value: payments
+            - name: RAZORPAY_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RAZORPAY_KEY_ID
+            - name: RAZORPAY_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RAZORPAY_KEY_SECRET
+            - name: RAZORPAY_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RAZORPAY_WEBHOOK_SECRET
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: ORDER_SERVICE_URL
+              value: http://order-service:{{ .Values.services.orderService.port }}
+            - name: LOG_LEVEL
+              value: {{ .Values.services.paymentService.logLevel }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.paymentService.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.paymentService.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ .Values.services.paymentService.resources.requests.cpu }}
+              memory: {{ .Values.services.paymentService.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.services.paymentService.resources.limits.cpu }}
+              memory: {{ .Values.services.paymentService.resources.limits.memory }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: {{ include "ecommerce.namespace" . }}
+  labels:
+    app: payment-service
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - port: {{ .Values.services.paymentService.port }}
+      targetPort: {{ .Values.services.paymentService.port }}
+{{- end }}

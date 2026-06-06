@@ -33,21 +33,38 @@ helm version
 
 ---
 
-## Quick deploy (all phases)
+## Quick deploy
 
 From the `k8s-networking-test/` directory:
 
 ```bash
 chmod +x deploy-all.sh helm-cnpg-vault-deploy.sh networking/*.sh networking/linkerd/*.sh
-./deploy-all.sh
 ```
 
-This runs four phases in order:
+Pick **one** networking mode (or both):
 
-1. Application stack (`helm-cnpg-vault-deploy.sh`)
-2. Network policies (`networking/apply-network-policies.sh`)
-3. Linkerd install + mesh injection (`networking/install-linkerd.sh`)
-4. Linkerd profiles + auth policies (`networking/linkerd/apply-all.sh`)
+```bash
+# NetworkPolicy demo only (Cilium + Hubble)
+./deploy-all.sh --network-policies
+
+# Linkerd service mesh demo only
+./deploy-all.sh --linkerd
+
+# Both layers (defense in depth)
+./deploy-all.sh --both
+```
+
+App only (no NetworkPolicies, no mesh):
+
+```bash
+./helm-cnpg-vault-deploy.sh
+```
+
+Remove Linkerd after a mesh demo:
+
+```bash
+./networking/uninstall-linkerd.sh
+```
 
 **Expected duration:** 15–25 minutes (image builds dominate).
 

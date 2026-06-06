@@ -18,6 +18,9 @@ spec:
               app: api-gateway
         - podSelector:
             matchLabels:
+              app: cart-service
+        - podSelector:
+            matchLabels:
               app: order-service
       ports:
         - port: 8001

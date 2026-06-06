@@ -29,7 +29,13 @@ spec:
         - port: 5432
         - port: 8000
   egress:
-    # Allow CNPG replication between instances
+    # CNPG instance manager must reach the Kubernetes API
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 443
     - to:
         - podSelector:
             matchLabels:

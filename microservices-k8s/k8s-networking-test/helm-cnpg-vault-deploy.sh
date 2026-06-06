@@ -506,7 +506,7 @@ echo ""
 
 echo -e "${YELLOW}Cleanup:${NC}"
 echo "  kubectl delete -f networking/policies/ --ignore-not-found"
-echo "  ./networking/linkerd/uninstall-linkerd.sh   # if created"
+echo "  ./networking/uninstall-linkerd.sh"
 echo "  helm uninstall ${RELEASE_NAME} -n ${NAMESPACE}"
 echo "  helm uninstall vault -n vault"
 echo "  helm uninstall external-secrets -n external-secrets"

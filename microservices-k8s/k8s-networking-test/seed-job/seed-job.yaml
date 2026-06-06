@@ -8,6 +8,8 @@ spec:
   backoffLimit: 3
   template:
     metadata:
+      annotations:
+        linkerd.io/inject: disabled
       labels:
         app: seed-data-job
     spec:

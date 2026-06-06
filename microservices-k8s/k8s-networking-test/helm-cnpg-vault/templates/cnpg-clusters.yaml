@@ -86,6 +86,10 @@ spec:
   monitoring:
     enablePodMonitor: {{ $.Values.cnpg.monitoring.enablePodMonitor }}
 
+  inheritedMetadata:
+    annotations:
+      linkerd.io/inject: disabled
+
   primaryUpdateStrategy: unsupervised
   failoverDelay: 0
   switchoverDelay: 10

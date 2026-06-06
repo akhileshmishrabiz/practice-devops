@@ -38,8 +38,17 @@ if ! kubectl get pods -n kube-system -l k8s-app=cilium 2>/dev/null | grep -q cil
     print_info "Run ./networking/install-cilium.sh after creating the Kind cluster."
 fi
 
+INCLUDE_LINKERD_POLICIES="${INCLUDE_LINKERD_POLICIES:-0}"
+
 print_info "Applying policies from networking/policies/ ..."
-kubectl apply -f "$SCRIPT_DIR/policies/"
+for policy in "$SCRIPT_DIR/policies/"*.yaml; do
+    base="$(basename "$policy")"
+    if [[ "$base" == "06-linkerd-proxy.yaml" && "$INCLUDE_LINKERD_POLICIES" != "1" ]]; then
+        print_info "Skipping $base (Linkerd not enabled; use INCLUDE_LINKERD_POLICIES=1 with --both)"
+        continue
+    fi
+    kubectl apply -f "$policy"
+done
 
 print_success "Network policies applied"
 

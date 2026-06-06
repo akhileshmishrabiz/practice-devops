@@ -109,6 +109,7 @@ This document explains the connectivity requirements between all services in the
 | Direction | Target | Port | Purpose |
 |-----------|--------|------|---------|
 | INGRESS | api-gateway | 8001 | API requests |
+| INGRESS | cart-service | 8001 | Product lookup + stock check (add to cart) |
 | INGRESS | order-service | 8001 | Stock validation |
 | EGRESS | products-rw | 5432 | Database queries |
 
